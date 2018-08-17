@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
  * tools.
  */
 data class RepositoryConfiguration(
+
     /**
      * Defines which parts of the repository will be excluded. Note that excluded parts will still be analyzed and
      * scanned, but related errors will be marked as resolved in the reporter output.
@@ -45,4 +46,21 @@ data class RepositoryConfiguration(
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     val curations: Curations? = null
+
+    /**
+    * Defines which parts of the repository will be excluded. Note that excluded parts will still be analyzed and
+    * scanned, but related errors will be marked as resolved in the reporter output.
+    */
+    //TODO: This is from original bitbake branch, KEEP?
+    //@JsonInclude(JsonInclude.Include.NON_NULL)
+    //val excludes: Excludes?,
+
+    /**
+    * Defines the recipes to analyzed for each directory which contains a BitBake definition file.
+    * The path is relative to the repository root and does not include the name of the definition file.
+    */
+    //TODO: NEEDED??
+    //@JsonInclude(JsonInclude.Include.NON_NULL)
+    //val bitbakeRecipes: Map<String, List<String>>?
+
 )
