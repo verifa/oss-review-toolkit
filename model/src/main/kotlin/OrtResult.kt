@@ -403,6 +403,29 @@ data class OrtResult(
 
     fun getPackage(id: Identifier): CuratedPackage? = packages[id]?.curatedPackage
 
+    fun replaceCurations(curations: List<PackageCuration>): OrtResult {
+        val curatedPackages: Set<CuratedPackage> = analyzer?.result?.packages ?: emptySet()
+
+        val overriddenPackages = curatedPackages.map { curatedPackage ->
+            val curationsForPackage = curations.filter { it.isApplicable(curatedPackage.pkg.id) }
+
+            curationsForPackage.fold(curatedPackage) { cur, packageCuration ->
+                packageCuration.apply(cur)
+            }
+        }.toSortedSet()
+
+        val result = copy(
+            analyzer = analyzer?.copy(
+                result = analyzer.result.copy(
+                    packages = overriddenPackages
+                )
+            )
+        )
+        result.data.putAll(data)
+
+        return result
+    }
+
     private fun getPackages(): Set<CuratedPackage> = analyzer?.result?.packages ?: emptySet()
 
     private fun getProjects(): Set<Project> = analyzer?.result?.projects ?: emptySet()

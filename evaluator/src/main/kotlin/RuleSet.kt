@@ -50,6 +50,7 @@ class RuleSet(val ortResult: OrtResult) {
      * [ortResult].
      */
     fun packageRule(name: String, configure: PackageRule.() -> Unit) {
+        println("start packageRule: " + name)
         val packages = ortResult.analyzer?.result?.let { analyzerResult ->
             analyzerResult.projects.map { it.toPackage().toCuratedPackage() } + analyzerResult.packages
         }.orEmpty()
@@ -62,6 +63,8 @@ class RuleSet(val ortResult: OrtResult) {
                 evaluate()
             }
         }
+
+        println("end packageRule: " + name)
     }
 
     /**
@@ -70,6 +73,7 @@ class RuleSet(val ortResult: OrtResult) {
      * the rule will be applied on each occurrence.
      */
     fun dependencyRule(name: String, configure: DependencyRule.() -> Unit) {
+        println("start dependencyRule: " + name)
         fun traverse(
             pkgRef: PackageReference,
             ancestors: List<PackageReference>,
@@ -123,6 +127,8 @@ class RuleSet(val ortResult: OrtResult) {
                 }
             }
         }
+        println("end dependencyRule: " + name)
+
     }
 }
 

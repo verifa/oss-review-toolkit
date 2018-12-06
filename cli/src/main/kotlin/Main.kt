@@ -84,6 +84,16 @@ object Main : CommandWithHelp() {
             addCommand(AnalyzerCommand)
             addCommand(DownloaderCommand)
             addCommand(EvaluatorCommand)
+            addCommand(ExtractCopyrightsCommand)
+            addCommand(ExtractRepositoryConfigurations)
+            addCommand(FilterCopyrightsCommand)
+            addCommand(FormatRepositoryConfigurationCommand)
+            addCommand(GenerateConfigurationCommand)
+            addCommand(ImportPathExcludesCommand)
+            addCommand(ListLicensesCommand)
+            addCommand(MergeCopyrightsCommand)
+            addCommand(MergeRepositoryConfigurations)
+            addCommand(ProcessCopyrightsCommand)
             addCommand(ReporterCommand)
             addCommand(RequirementsCommand)
             addCommand(ScannerCommand)
@@ -101,8 +111,9 @@ object Main : CommandWithHelp() {
             info -> log.level = ch.qos.logback.classic.Level.INFO
         }
 
+        log.level = ch.qos.logback.classic.Level.INFO
         // Make the parameter globally available.
-        printStackTrace = stacktrace
+        printStackTrace = true
 
         // JCommander already validates the command names.
         val command = jc.commands[jc.parsedCommand]!!
