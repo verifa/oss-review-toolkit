@@ -36,10 +36,13 @@ import io.kotlintest.specs.StringSpec
 
 import java.io.File
 
+import kotlinx.coroutines.ObsoleteCoroutinesApi
+
 private const val REPO_URL = "https://github.com/heremaps/oss-review-toolkit-test-data-git-repo"
 private const val REPO_REV = "f00ec4cbb670b49a156fd95d29e8fd148d931ba9"
 private const val REPO_MANIFEST = "manifest.xml"
 
+@ObsoleteCoroutinesApi
 class GitRepoTest : StringSpec() {
     private lateinit var outputDir: File
 

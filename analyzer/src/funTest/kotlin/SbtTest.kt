@@ -31,6 +31,9 @@ import io.kotlintest.specs.StringSpec
 
 import java.io.File
 
+import kotlinx.coroutines.ObsoleteCoroutinesApi
+
+@ObsoleteCoroutinesApi
 class SbtTest : StringSpec({
     "Dependencies of the single 'directories' project should be detected correctly" {
         val projectName = "directories"
