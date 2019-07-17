@@ -46,7 +46,10 @@ object Main : CommandWithHelp() {
     fun run(args: Array<String>): Int {
         val jc = JCommander(this).apply {
             programName = TOOL_NAME
+
             addCommand(FormatRepositoryConfigurationCommand())
+            addCommand(SortRepositoryConfigurationCommand())
+
             parse(*args)
         }
 

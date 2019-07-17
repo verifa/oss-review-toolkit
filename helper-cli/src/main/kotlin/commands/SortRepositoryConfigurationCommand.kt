@@ -33,10 +33,10 @@ import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
 import java.io.File
 
 @Parameters(
-    commandNames = ["format-repository-configuration"],
-    commandDescription = "Applies the formatting used by ORT and strips the comments."
+    commandNames = ["sort-repository-configuration"],
+    commandDescription = "Sort entries of the repository configuration alphabetically."
 )
-internal class FormatRepositoryConfigurationCommand : CommandWithHelp() {
+internal class SortRepositoryConfigurationCommand : CommandWithHelp() {
     @Parameter(
         description = "repository configuration file.",
         required = true,
@@ -48,8 +48,26 @@ internal class FormatRepositoryConfigurationCommand : CommandWithHelp() {
     override fun runCommand(jc: JCommander): Int {
         repositoryConfigurationFile
             .readValue<RepositoryConfiguration>()
+            .sortExcludes()
             .prettyPrintAsYaml(repositoryConfigurationFile)
 
         return 0
     }
+}
+
+private fun RepositoryConfiguration.sortExcludes(): RepositoryConfiguration {
+    val excludes = excludes?.let {
+        val pathExcludes = it.paths.sortedBy { pathExclude ->
+            pathExclude.pattern.replace("*", "")
+        }
+        val scopeExcludes = it.scopes.sortedBy { scopeExclude ->
+            scopeExclude.name.toString().replace("\\.*", "")
+        }
+        it.copy(
+            paths = pathExcludes,
+            scopes = scopeExcludes
+        )
+    }
+
+    return copy(excludes = excludes)
 }
