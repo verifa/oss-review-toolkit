@@ -426,6 +426,20 @@ data class OrtResult(
         return result
     }
 
+    fun getScanIssues(omitExcluded: Boolean = false): List<OrtIssue> {
+        val result = mutableListOf<OrtIssue>()
+
+        scanner?.results?.scanResults?.forEach { container ->
+            if (!omitExcluded || !isExcluded(container.id)) {
+                container.results.forEach { scanResult ->
+                    result.addAll(scanResult.summary.errors)
+                }
+            }
+        }
+
+        return result
+    }
+
     private fun getPackages(): Set<CuratedPackage> = analyzer?.result?.packages ?: emptySet()
 
     private fun getProjects(): Set<Project> = analyzer?.result?.projects ?: emptySet()

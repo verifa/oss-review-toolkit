@@ -22,6 +22,7 @@ package com.here.ort.helper
 import kotlin.system.exitProcess
 import com.beust.jcommander.JCommander
 import com.here.ort.CommandWithHelp
+import com.here.ort.helper.commands.GenerateTimeoutErrorResolutionsCommand
 
 private const val TOOL_NAME = "orth"
 
@@ -48,6 +49,7 @@ object Main : CommandWithHelp() {
             programName = TOOL_NAME
 
             addCommand(FormatRepositoryConfigurationCommand())
+            addCommand(GenerateTimeoutErrorResolutionsCommand())
             addCommand(SortRepositoryConfigurationCommand())
 
             parse(*args)
