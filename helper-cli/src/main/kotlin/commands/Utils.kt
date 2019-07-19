@@ -19,13 +19,30 @@
 
 package com.here.ort.helper.commands
 
-import com.here.ort.model.config.Excludes
-import com.here.ort.model.config.PathExclude
-import com.here.ort.model.config.RepositoryConfiguration
-import com.here.ort.model.config.ScopeExclude
+import com.here.ort.model.OrtResult
+import com.here.ort.model.RuleViolation
+import com.here.ort.model.config.*
 import com.here.ort.model.yamlMapper
 
 import java.io.File
+
+
+/**
+ * Returns all unresolved rule violations.
+ */
+fun OrtResult.getUnresolvedRuleViolations(): List<RuleViolation> {
+    val resolutions = repository.config.resolutions?.ruleViolations ?: emptyList()
+    val violations = evaluator?.violations ?: emptyList()
+
+    println(resolutions.size)
+    println(violations.size)
+    println(violations.filter { violation ->
+        !resolutions.any { it.matches(violation) }
+    }.size)
+    return violations.filter { violation ->
+        !resolutions.any { it.matches(violation) }
+    }
+}
 
 /**
  * Serialize a [RepositoryConfiguration] as YAML to the given target [File].
@@ -48,6 +65,13 @@ fun RepositoryConfiguration.replacePathExcludes(pathExculdes: List<PathExclude>)
  */
 fun RepositoryConfiguration.replaceScopeExcludes(scopeExcludes: List<ScopeExclude>)
     : RepositoryConfiguration = copy(excludes = (excludes ?: Excludes()).copy(scopes = scopeExcludes))
+
+/**
+ * Return a copy with the [ScopeExclude]s replaced by the given scope excludes.
+ */
+fun RepositoryConfiguration.replaceRuleViolationResolutions(ruleViolations: List<RuleViolationResolution>)
+        : RepositoryConfiguration = copy(resolutions = (resolutions?: Resolutions())
+    .copy(ruleViolations = ruleViolations))
 
 /**
  * Returns a copy with sorting applied to all entry types we want to have sorted.
