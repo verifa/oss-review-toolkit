@@ -22,6 +22,7 @@ package com.here.ort.helper
 import kotlin.system.exitProcess
 import com.beust.jcommander.JCommander
 import com.here.ort.CommandWithHelp
+import com.here.ort.helper.commands.GenerateProjectExcludesCommand
 import com.here.ort.helper.commands.GenerateScopeExcludesCommand
 import com.here.ort.helper.commands.GenerateTimeoutErrorResolutionsCommand
 import com.here.ort.helper.commands.ImportPathExcludesCommand
@@ -51,6 +52,7 @@ object Main : CommandWithHelp() {
             programName = TOOL_NAME
 
             addCommand(FormatRepositoryConfigurationCommand())
+            addCommand(GenerateProjectExcludesCommand())
             addCommand(GenerateScopeExcludesCommand())
             addCommand(GenerateTimeoutErrorResolutionsCommand())
             addCommand(ImportPathExcludesCommand())
