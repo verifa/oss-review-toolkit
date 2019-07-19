@@ -442,7 +442,7 @@ data class OrtResult(
 
     private fun getPackages(): Set<CuratedPackage> = analyzer?.result?.packages ?: emptySet()
 
-    private fun getProjects(): Set<Project> = analyzer?.result?.projects ?: emptySet()
+    fun getProjects(): Set<Project> = analyzer?.result?.projects ?: emptySet()
 
     private fun getExcludes(): Excludes = repository.config.excludes ?: Excludes()
 }

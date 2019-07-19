@@ -19,7 +19,9 @@
 
 package com.here.ort.helper.commands
 
+import com.here.ort.model.config.Excludes
 import com.here.ort.model.config.RepositoryConfiguration
+import com.here.ort.model.config.ScopeExclude
 import com.here.ort.model.yamlMapper
 
 import java.io.File
@@ -33,6 +35,12 @@ fun RepositoryConfiguration.prettyPrintAsYaml(targetFile: File) {
 
     yamlMapper.writeValue(targetFile, this)
 }
+
+/**
+ * Return a copy with the [ScopeExclude]s replaced by the given scope excludes.
+ */
+fun RepositoryConfiguration.replaceScopeExcludes(scopeExcludes: List<ScopeExclude>)
+    : RepositoryConfiguration = copy(excludes = (excludes ?: Excludes()).copy(scopes = scopeExcludes))
 
 /**
  * Returns a copy with sorting applied to all entry types we want to have sorted.
@@ -65,3 +73,27 @@ fun RepositoryConfiguration.sortScopeExcludes(): RepositoryConfiguration =
             it.copy(scopes = scopes)
         }
     )
+
+ /**
+ * Returns an approximation for the Set-Cover Problem.
+ */
+fun <K, V>  greedySetCover(sets: Map<K, Set<V>>): Set<K> {
+    val result = mutableSetOf<K>()
+
+    var uncovered = sets.values.flatMap { it }.toMutableSet()
+    var queue = sets.entries.toMutableSet()
+
+    while(!queue.isEmpty()) {
+        val max = queue.maxBy { it.value.intersect(uncovered).size }!!
+
+        if (uncovered.intersect(max.value).size > 0) {
+            uncovered.removeAll(max.value)
+            queue.remove(max)
+            result.add(max.key)
+        } else {
+            break
+        }
+    }
+
+    return result
+}
