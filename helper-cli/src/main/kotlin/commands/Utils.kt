@@ -33,3 +33,35 @@ fun RepositoryConfiguration.prettyPrintAsYaml(targetFile: File) {
 
     yamlMapper.writeValue(targetFile, this)
 }
+
+/**
+ * Returns a copy with sorting applied to all entry types we want to have sorted.
+ */
+fun RepositoryConfiguration.sortEntries(): RepositoryConfiguration =
+    sortPathExcludes().sortScopeExcludes()
+
+/**
+ * Returns a copy with the [PathExclude]s sorted.
+ */
+fun RepositoryConfiguration.sortPathExcludes(): RepositoryConfiguration =
+    copy(
+        excludes = excludes?.let {
+            val paths = it.paths.sortedBy { pathExclude ->
+                pathExclude.pattern.removePrefix("*").removePrefix("*")
+            }
+            it.copy(paths = paths)
+        }
+    )
+
+/**
+ * Returns a copy with the [ScopeExclude]s sorted.
+ */
+fun RepositoryConfiguration.sortScopeExcludes(): RepositoryConfiguration =
+    copy(
+        excludes = excludes?.let {
+            val scopes = it.scopes.sortedBy { scopeExclude ->
+                scopeExclude.name.toString().removePrefix(".*")
+            }
+            it.copy(scopes = scopes)
+        }
+    )

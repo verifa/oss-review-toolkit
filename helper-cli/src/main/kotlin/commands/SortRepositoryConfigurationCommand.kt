@@ -26,6 +26,7 @@ import com.beust.jcommander.converters.FileConverter
 
 import com.here.ort.CommandWithHelp
 import com.here.ort.helper.commands.prettyPrintAsYaml
+import com.here.ort.helper.commands.sortEntries
 import com.here.ort.model.config.RepositoryConfiguration
 import com.here.ort.model.readValue
 import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
@@ -48,26 +49,9 @@ internal class SortRepositoryConfigurationCommand : CommandWithHelp() {
     override fun runCommand(jc: JCommander): Int {
         repositoryConfigurationFile
             .readValue<RepositoryConfiguration>()
-            .sortExcludes()
+            .sortEntries()
             .prettyPrintAsYaml(repositoryConfigurationFile)
 
         return 0
     }
-}
-
-private fun RepositoryConfiguration.sortExcludes(): RepositoryConfiguration {
-    val excludes = excludes?.let {
-        val pathExcludes = it.paths.sortedBy { pathExclude ->
-            pathExclude.pattern.replace("*", "")
-        }
-        val scopeExcludes = it.scopes.sortedBy { scopeExclude ->
-            scopeExclude.name.toString().replace("\\.*", "")
-        }
-        it.copy(
-            paths = pathExcludes,
-            scopes = scopeExcludes
-        )
-    }
-
-    return copy(excludes = excludes)
 }
