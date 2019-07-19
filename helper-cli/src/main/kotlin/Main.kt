@@ -24,6 +24,7 @@ import com.beust.jcommander.JCommander
 import com.here.ort.CommandWithHelp
 import com.here.ort.helper.commands.GenerateScopeExcludesCommand
 import com.here.ort.helper.commands.GenerateTimeoutErrorResolutionsCommand
+import com.here.ort.helper.commands.ImportPathExcludesCommand
 
 private const val TOOL_NAME = "orth"
 
@@ -52,6 +53,7 @@ object Main : CommandWithHelp() {
             addCommand(FormatRepositoryConfigurationCommand())
             addCommand(GenerateScopeExcludesCommand())
             addCommand(GenerateTimeoutErrorResolutionsCommand())
+            addCommand(ImportPathExcludesCommand())
             addCommand(SortRepositoryConfigurationCommand())
 
             parse(*args)

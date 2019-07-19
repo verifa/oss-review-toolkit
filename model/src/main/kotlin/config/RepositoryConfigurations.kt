@@ -19,9 +19,20 @@
 
 package com.here.ort.model.config
 
+import com.here.ort.model.readValue
+import com.here.ort.model.yamlMapper
+import java.io.File
 import java.util.SortedMap
 
 data class RepositoryConfigurations(
     val configurations: SortedMap<String, RepositoryConfiguration>
 )
 
+fun main() {
+    val x = File("/home/frank/devel/oss-support/repo-configs.yml").readValue<RepositoryConfigurations>()
+    val y = x.configurations.mapValues {
+        it.value.excludes!!.paths
+    }
+    println(yamlMapper.writeValueAsString(y))
+
+}

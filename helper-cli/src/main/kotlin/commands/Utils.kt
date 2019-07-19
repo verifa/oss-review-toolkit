@@ -20,6 +20,7 @@
 package com.here.ort.helper.commands
 
 import com.here.ort.model.config.Excludes
+import com.here.ort.model.config.PathExclude
 import com.here.ort.model.config.RepositoryConfiguration
 import com.here.ort.model.config.ScopeExclude
 import com.here.ort.model.yamlMapper
@@ -35,6 +36,12 @@ fun RepositoryConfiguration.prettyPrintAsYaml(targetFile: File) {
 
     yamlMapper.writeValue(targetFile, this)
 }
+
+/**
+ * Return a copy with the [PathExclude]s replaced by the given scope excludes.
+ */
+fun RepositoryConfiguration.replacePathExcludes(pathExculdes: List<PathExclude>)
+        : RepositoryConfiguration = copy(excludes = (excludes ?: Excludes()).copy(paths = pathExculdes))
 
 /**
  * Return a copy with the [ScopeExclude]s replaced by the given scope excludes.
