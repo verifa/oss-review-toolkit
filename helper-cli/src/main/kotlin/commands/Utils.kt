@@ -19,6 +19,7 @@
 
 package com.here.ort.helper.commands
 
+import com.here.ort.analyzer.PackageManager
 import com.here.ort.model.OrtResult
 import com.here.ort.model.RuleViolation
 import com.here.ort.model.config.*
@@ -128,3 +129,73 @@ fun <K, V>  greedySetCover(sets: Map<K, Set<V>>): Set<K> {
 
     return result
 }
+
+typealias RepositoryPathExcludes = Map<String, List<PathExclude>>
+
+fun OrtResult.getRepositoryPathExcludes(): RepositoryPathExcludes {
+    fun isDefinitionsFile(pathExclude: PathExclude) = PackageManager.ALL.any {
+        it.matchersForDefinitionFiles.any {
+            pathExclude.pattern.endsWith(it.toString())
+        }
+    }
+
+    val result= mutableMapOf<String, MutableList<PathExclude>>()
+    val pathExcludes = repository.config.excludes?.paths ?: emptyList()
+
+    repository.nestedRepositories.forEach { (path, vcs) ->
+        val pathExcludesForRepository = result.getOrPut(vcs.url) { mutableListOf() }
+        pathExcludes.forEach { pathExclude ->
+            if (pathExclude.pattern.startsWith(path) && !isDefinitionsFile(pathExclude)) {
+                pathExcludesForRepository.add(
+                    pathExclude.copy(
+                        pattern = pathExclude.pattern.substring(path.length).removePrefix("/")
+                    )
+                )
+            }
+        }
+    }
+
+    return result.mapValues { it.value.sortedBy { it.pattern } }.toSortedMap()
+}
+
+fun RepositoryPathExcludes.merge(other: RepositoryPathExcludes, updateOnlyExisting: Boolean = false)
+        : RepositoryPathExcludes {
+    val result: MutableMap<String, MutableMap<String, PathExclude>> = mutableMapOf()
+
+    fun merge(repositoryUrl: String, pathExclude: PathExclude, updateOnlyUpdateExisting: Boolean = false) {
+        if (updateOnlyUpdateExisting && !result.containsKey(repositoryUrl)) {
+            return
+        }
+
+        val pathExcludes = result.getOrPut(repositoryUrl, { mutableMapOf() })
+        if (updateOnlyUpdateExisting && !result.containsKey(pathExclude.pattern)) {
+            return
+        }
+
+        pathExcludes.put(pathExclude.pattern, pathExclude)
+    }
+
+    forEach { (repositoryUrl, pathExcludes) ->
+        pathExcludes.forEach { pathExclude ->
+            merge(repositoryUrl, pathExclude, false)
+        }
+    }
+
+    other.forEach { (repositoryUrl, pathExcludes) ->
+        pathExcludes.forEach { pathExclude ->
+            merge(repositoryUrl, pathExclude, updateOnlyExisting)
+        }
+    }
+
+    return result.mapValues { (_, pathExcludes) ->
+        pathExcludes.values.toList()
+    }
+}
+
+fun RepositoryPathExcludes.writeAsYaml(targetFile: File) =
+    yamlMapper.writeValue(
+        targetFile,
+        mapValues { (_, pathExcludes) -> pathExcludes.sortedBy { it.pattern } }
+            .toSortedMap()
+    )
+

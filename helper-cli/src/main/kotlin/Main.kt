@@ -53,6 +53,7 @@ object Main : CommandWithHelp() {
         val jc = JCommander(this).apply {
             programName = TOOL_NAME
 
+            addCommand(ExportPathExcludesCommand())
             addCommand(FormatRepositoryConfigurationCommand())
             addCommand(GenerateProjectExcludesCommand())
             addCommand(GenerateRuleViolationResolutionsCommand())
