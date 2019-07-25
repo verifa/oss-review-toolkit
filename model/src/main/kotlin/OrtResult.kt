@@ -20,6 +20,7 @@
 package com.here.ort.model
 
 import ch.frankel.slf4k.*
+import com.fasterxml.jackson.annotation.JsonIgnore
 
 import com.fasterxml.jackson.annotation.JsonInclude
 
@@ -440,8 +441,13 @@ data class OrtResult(
         return result
     }
 
+    @JsonIgnore(true)
+    fun getRuleViolations(): List<RuleViolation> =
+        evaluator?.violations ?: emptyList()
+
     private fun getPackages(): Set<CuratedPackage> = analyzer?.result?.packages ?: emptySet()
 
+    @JsonIgnore(true)
     fun getProjects(): Set<Project> = analyzer?.result?.projects ?: emptySet()
 
     private fun getExcludes(): Excludes = repository.config.excludes ?: Excludes()

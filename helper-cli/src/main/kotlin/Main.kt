@@ -55,6 +55,7 @@ object Main : CommandWithHelp() {
 
             addCommand(ExportPathExcludesCommand())
             addCommand(FormatRepositoryConfigurationCommand())
+            addCommand(ListLicensesCommand())
             addCommand(GenerateProjectExcludesCommand())
             addCommand(GenerateRuleViolationResolutionsCommand())
             addCommand(GenerateScopeExcludesCommand())
