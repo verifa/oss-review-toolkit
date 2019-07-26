@@ -27,7 +27,6 @@ import com.here.ort.model.*
 import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
 import com.here.ort.utils.PARAMETER_ORDER_OPTIONAL
 import com.here.ort.utils.expandTilde
-import com.sun.org.apache.xpath.internal.operations.Bool
 import java.io.File
 
 @Parameters(commandNames = ["list-licenses"], commandDescription = "List licenses.")
@@ -87,6 +86,7 @@ object ListLicensesCommand : CommandWithHelp() {
 
         val violatingLicenses = ortResult.evaluator!!.violations.filter { it.severity == Severity.ERROR }.mapNotNull { it.license }
         val blacklistedLicenses = ortResult.evaluator!!.violations.filter { it.rule == "BLACKLISTED_LICENSE" }.mapNotNull { it.license }.toSet()
+        val unKnownCaseByCaseLicenses = ortResult.evaluator!!.violations.filter { it.rule == "UNKNOWN_LICENSE_CASE_BY_CASE" }.mapNotNull { it.license }.toSet()
 
         val provenanceFindings = mutableMapOf<Provenance, MutableMap<String, MutableSet<TextLocation>>>()
         ortResult.scanner!!.results.scanResults.forEach { container ->
@@ -118,7 +118,13 @@ object ListLicensesCommand : CommandWithHelp() {
                 appendln("")
                 val licenses = packageFindings[id]!!
                 licenses.keys.sorted().forEach { license ->
-                    val relevantFindings = licenses[license]!!.filter { (!(omitExcluded && isExcluded(it.path)) || license in blacklistedLicenses) && violatingLicenses.contains(license) }
+                    val relevantFindings = licenses[license]!!.filter {
+                        (!(omitExcluded && isExcluded(it.path))
+                                || license in blacklistedLicenses
+                                || license in unKnownCaseByCaseLicenses
+
+                          )
+                                && violatingLicenses.contains(license) }
 
                     val distinctFindings = getDistinctFindings(relevantFindings)
 

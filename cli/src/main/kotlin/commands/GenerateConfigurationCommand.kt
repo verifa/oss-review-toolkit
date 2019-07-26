@@ -24,14 +24,11 @@ import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import com.here.ort.CommandWithHelp
 import com.here.ort.analyzer.Analyzer
-import com.here.ort.analyzer.PackageManager
 import com.here.ort.model.*
 import com.here.ort.model.config.*
 import com.here.ort.reporter.DefaultResolutionProvider
 import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
 import com.here.ort.utils.PARAMETER_ORDER_OPTIONAL
-import com.here.ort.utils.normalizeVcsUrl
-import jdk.nashorn.internal.runtime.URIUtils
 import java.io.File
 
 @Parameters(commandNames = ["generate-config"], commandDescription = "Generates an ort.yml file.")

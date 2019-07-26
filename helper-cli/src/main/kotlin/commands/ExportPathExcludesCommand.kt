@@ -25,6 +25,8 @@ import com.beust.jcommander.Parameters
 
 import com.here.ort.CommandWithHelp
 import com.here.ort.model.*
+import com.here.ort.model.config.RepositoryConfiguration
+import com.here.ort.model.config.RepositoryConfigurations
 import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
 import com.here.ort.utils.PARAMETER_ORDER_OPTIONAL
 
@@ -77,4 +79,10 @@ internal class ExportPathExcludesCommand : CommandWithHelp() {
 
         return 0
     }
+}
+
+fun main() {
+    val x: RepositoryConfigurations = File("/home/viernau/devel/oss-support/repo-configs.yml").readValue()
+    val y: RepositoryPathExcludes = x.configurations.mapValues { it.value.excludes!!.paths }
+    y.writeAsYaml(File("/home/viernau/devel/oss-support/path-excludes.yml"))
 }

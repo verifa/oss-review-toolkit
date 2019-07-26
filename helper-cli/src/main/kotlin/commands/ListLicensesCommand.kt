@@ -23,10 +23,14 @@ import com.beust.jcommander.IStringConverter
 import com.beust.jcommander.JCommander
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
+import com.google.common.io.Files
 
 import com.here.ort.CommandWithHelp
+import com.here.ort.downloader.Downloader
 import com.here.ort.model.*
 import com.here.ort.utils.PARAMETER_ORDER_MANDATORY
+import com.here.ort.utils.log
+import com.here.ort.utils.safeDeleteRecursively
 
 import java.io.File
 import java.lang.Exception
@@ -45,10 +49,10 @@ internal class ListLicensesCommand : CommandWithHelp() {
 
     @Parameter(
         names = ["--source-code-dir"],
-        required = true,
+        required = false,
         order = PARAMETER_ORDER_MANDATORY
     )
-    private lateinit var sourceCodeDir: File
+    private var sourceCodeDir: File? = null
 
     @Parameter(
         names = ["--package-id"],
@@ -69,13 +73,17 @@ internal class ListLicensesCommand : CommandWithHelp() {
         val ortResult = ortResultFile.readValue<OrtResult>()
 
         val offendingLicenses = ortResult.getOffendingLicensesById(packageId, Severity.ERROR)
+
+        val scanDir = sourceCodeDir ?: ortResult.download(packageId)
+        println("scanDir: $scanDir")
+
         var licenseFindings = ortResult
             .getLicenseFindingsById(packageId)
             .filter {
                 !onlyOffending || offendingLicenses.contains(it.key)
             }
             .mapValues {
-                it.value.groupByText(sourceCodeDir)
+                it.value.groupByText(scanDir)
             }
             .toSortedMap()
 
@@ -84,12 +92,19 @@ internal class ListLicensesCommand : CommandWithHelp() {
                 appendln("  $license:")
 
                 textLocationGroups
-                    .sortedBy { it.locations.size }
+                    .sortedByDescending { it.locations.size }
                     .forEachIndexed { i, group ->
                         group.locations.forEach {
                             appendln("    [$i] ${it.path}:${it.startLine}-${it.endLine}")
                         }
                     }
+                textLocationGroups
+                    .sortedByDescending { it.locations.size }
+                    .forEachIndexed { i, group ->
+                        appendln("$i:\n\n${group.text}")
+                    }
+
+                appendln()
             }
         }
 
@@ -99,12 +114,43 @@ internal class ListLicensesCommand : CommandWithHelp() {
     }
 }
 
+private fun OrtResult.download(id: Identifier): File {
+    var pkg = getPackageOrProject(id)!!
+    if (getProvenance(id)!!.sourceArtifact != null) {
+        pkg = pkg.copy(vcs = VcsInfo.EMPTY, vcsProcessed = VcsInfo.EMPTY)
+    } else {
+        pkg = pkg.copy(sourceArtifact = RemoteArtifact.EMPTY)
+    }
+
+    val tempDir = createTempDir("helper-cli", ".temp", File("."))
+
+    log.level = ch.qos.logback.classic.Level.DEBUG
+    val downloadDir = Downloader().download(pkg, tempDir).downloadDirectory
+    log.level = ch.qos.logback.classic.Level.OFF
+
+    return downloadDir
+}
+
 private fun OrtResult.getOffendingLicensesById(id: Identifier, minSeverity: Severity): Set<String> =
         getRuleViolations()
             .filter {
                 it.pkg == id && it.severity.ordinal <= minSeverity.ordinal
             }
             .mapNotNull { it.license }.toSet()
+
+private fun OrtResult.getProvenance(id: Identifier): Provenance? {
+    val pkg = getPackageOrProject(id)!!
+    scanner?.results?.scanResults?.forEach { container ->
+        container.results.forEach { scanResult ->
+            if(scanResult.provenance.matches(pkg)) {
+                return scanResult.provenance
+            }
+        }
+    }
+
+    return null
+}
+
 
 private fun OrtResult.getLicenseFindingsById(id: Identifier): Map<String, Set<TextLocation>> {
     val result = mutableMapOf<String, MutableSet<TextLocation>>()
