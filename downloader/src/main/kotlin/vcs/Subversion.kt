@@ -31,6 +31,7 @@ import com.here.ort.downloader.DownloadException
 import com.here.ort.downloader.VersionControlSystem
 import com.here.ort.downloader.WorkingTree
 import com.here.ort.model.Package
+import com.here.ort.model.VcsInfo
 import com.here.ort.model.VcsType
 import com.here.ort.model.xmlMapper
 import com.here.ort.utils.CommandLineTool
@@ -179,6 +180,27 @@ class Subversion : VersionControlSystem(), CommandLineTool {
     override fun isApplicableUrlInternal(vcsUrl: String) =
         (vcsUrl.startsWith("svn+") || ProcessCapture("svn", "list", vcsUrl).isSuccess)
 
+    override fun initWorkingTree(targetDir: File, vcs: VcsInfo): WorkingTree {
+        // Create an empty working tree of the latest revision to allow sparse checkouts.
+        run(targetDir, "checkout", vcs.url, "--depth", "empty", ".")
+
+        return getWorkingTree(targetDir)
+    }
+
+    override fun updateWorkingTree(workingTree: WorkingTree, revision: String, recursive: Boolean): Boolean {
+        if (path.isBlank()) {
+            // Deepen everything as we do not know whether the revision is contained in branches, tags or trunk.
+            run(workingTree.workingDir, "update", "-r", revision, "--set-depth", "infinity")
+            workingTree
+        } else {
+            // Deepen only the given path.
+            run(workingTree.workingDir, "update", "-r", revision, "--depth", "infinity", "--parents", path)
+
+            // Only return that part of the working tree that has the right revision.
+            getWorkingTree(File(workingTree.workingDir, path))
+        }
+    }
+
     override fun download(
         pkg: Package, targetDir: File, allowMovingRevisions: Boolean,
         recursive: Boolean
@@ -186,27 +208,9 @@ class Subversion : VersionControlSystem(), CommandLineTool {
         log.info { "Using $type version ${getVersion()}." }
 
         return try {
-            // Create an empty working tree of the latest revision to allow sparse checkouts.
-            run(targetDir, "checkout", pkg.vcsProcessed.url, "--depth", "empty", ".")
-
             var revision = pkg.vcsProcessed.revision.takeIf { it.isNotBlank() } ?: "HEAD"
 
-            val workingTree = getWorkingTree(targetDir)
             if (allowMovingRevisions || isFixedRevision(workingTree, revision)) {
-                if (pkg.vcsProcessed.path.isBlank()) {
-                    // Deepen everything as we do not know whether the revision is contained in branches, tags or trunk.
-                    run(targetDir, "update", "-r", revision, "--set-depth", "infinity")
-                    workingTree
-                } else {
-                    // Deepen only the given path.
-                    run(
-                        targetDir, "update", "-r", revision, "--depth", "infinity", "--parents",
-                        pkg.vcsProcessed.path
-                    )
-
-                    // Only return that part of the working tree that has the right revision.
-                    getWorkingTree(File(targetDir, pkg.vcsProcessed.path))
-                }
             } else {
                 val tagPath: String
                 val path: String
