@@ -1,3 +1,31 @@
+/*
+ * Copyright (C) 2017-2019 HERE Europe B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-FileCopyrightText: Copyright (C) 2017-2019 HERE Europe B.V.
+ * SPDX-License-Identifier: Apache-2.0
+ * License-Filename: LICENSE
+ */
+
+/* eslint-disable */
+/* We should only include in the WebApp report the
+ * license summaries for the licenses found in the code.
+ * Code analysis and scanning is handled by ORT's Kotlin code
+ * so disabling ESlint as functionality included in this file
+ * will be moved to the Kotlin code in the near future.
+ */
+
 import {
     data as choosealicenseLicenses,
     metadata as choosealicenseMetaData

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * SPDX-FileCopyrightText: Copyright (C) 2017-2019 HERE Europe B.V.
  * SPDX-License-Identifier: Apache-2.0
  * License-Filename: LICENSE
  */
