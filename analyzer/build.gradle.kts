@@ -1,4 +1,3 @@
-val digraphVersion: String by project
 val jacksonVersion: String by project
 val mavenVersion: String by project
 val mavenResolverVersion: String by project
@@ -22,7 +21,6 @@ dependencies {
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     implementation("com.moandjiezana.toml:toml4j:$toml4jVersion")
-    implementation("com.paypal.digraph:digraph-parser:$digraphVersion")
     implementation("com.vdurmont:semver4j:$semverVersion")
 
     implementation("org.apache.maven:maven-core:$mavenVersion")

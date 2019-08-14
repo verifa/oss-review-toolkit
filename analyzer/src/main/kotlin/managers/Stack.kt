@@ -43,8 +43,6 @@ import com.here.ort.utils.ProcessCapture
 import com.here.ort.utils.log
 import com.here.ort.utils.safeDeleteRecursively
 
-import com.paypal.digraph.parser.GraphParser
-
 import com.vdurmont.semver4j.Requirement
 
 import java.io.File
@@ -73,6 +71,18 @@ class Stack(
             analyzerConfig: AnalyzerConfiguration,
             repoConfig: RepositoryConfiguration
         ) = Stack(managerName, analyzerRoot, analyzerConfig, repoConfig)
+    }
+
+    private data class TreeLine(val level: Int, val name: String, val version: String) {
+        companion object {
+            private val DEPENDENCY_TREE_LINE_REGEX = Regex("(.+) ([^ ]+) ([^ ]+)")
+
+            fun parse(line: String): TreeLine {
+                DEPENDENCY_TREE_LINE_REGEX.matchEntire(line)?.groupValues?.let {
+                    return TreeLine(it[1].length, it[2], it[3])
+                } ?: throw IOException("Error parsing dependency tree line '$line'.")
+            }
+        }
     }
 
     override fun command(workingDir: File?) = "stack"
@@ -104,7 +114,6 @@ class Stack(
         val projectPackage = parseCabalFile(cabalFile.readText())
         val projectId = projectPackage.id.copy(type = managerName)
 
-        // Parse package information from the stack.yaml file.
         fun runStack(vararg command: String): ProcessCapture {
             // Delete any left-overs from interrupted stack runs.
             File(workingDir, ".stack-work").safeDeleteRecursively()
@@ -112,52 +121,66 @@ class Stack(
             return run(workingDir, *command)
         }
 
-        fun mapParentsToChildren(scope: String): Map<String, List<String>> {
-            val dotGraph = runStack("dot", "--global-hints", "--$scope").stdout
+        // Parse package information from the stack.yaml file.
+        fun buildDependencyTree(
+            scope: String,
+            scopeDependencies: SortedSet<PackageReference>,
+            allPackages: MutableMap<Identifier, Package>
+        ) {
+            fun buildDependencySubTree(treeIterator: Iterator<String>, previousLevel: Int, dependencies: SortedSet<PackageReference>) {
+                while (treeIterator.hasNext()) {
+                    val dependency = TreeLine.parse(treeIterator.next())
 
-            // Strip any leading garbage in case Stack was bootstrapping itself, resulting in unrelated output.
-            val dotLines = dotGraph.lineSequence().dropWhile { !it.startsWith("strict digraph deps") }
+                    val pkgId = Identifier("Hackage", "", dependency.name, dependency.version)
+                    val pkgFallback = Package.EMPTY.copy(id = pkgId, purl = pkgId.toPurl())
 
-            val dotParser = GraphParser(dotLines.joinToString("\n").byteInputStream())
-            val dependencies = mutableMapOf<String, MutableList<String>>()
+                    val pkg = allPackages.getOrPut(pkgId) {
+                        // Enrich the package with additional meta-data from Hackage.
+                        downloadCabalFile(pkgId)?.let {
+                            parseCabalFile(it)
+                        } ?: pkgFallback
+                    }
 
-            dotParser.edges.values.forEach { edge ->
-                val parent = edge.node1.id.removeSurrounding("\"")
-                val child = edge.node2.id.removeSurrounding("\"")
-                dependencies.getOrPut(parent) { mutableListOf() } += child
+                    val packageRef = pkg.toReference()
+
+                    when {
+                        dependency.level == previousLevel -> dependencies += packageRef
+                        dependency.level > previousLevel -> {
+                            packageRef.dependencies += packageRef
+                            buildDependencySubTree(treeIterator, dependency.level, packageRef.dependencies)
+                        }
+                    }
+                }
             }
 
-            log.debug { "Parsed ${dependencies.size} dependency relations from graph." }
+            val tree = runStack("ls", "dependencies", "--tree", "--global-hints", "--$scope").stdout.trim()
+            val treeIterator = tree.lineSequence().iterator()
 
-            return dependencies
-        }
-
-        fun mapNamesToVersions(scope: String): Map<String, String> {
-            val dependencies = runStack("ls", "dependencies", "--global-hints", "--$scope").stdout
-            return dependencies.lines().associate {
-                Pair(it.substringBefore(" "), it.substringAfter(" "))
-            }.also {
-                log.debug { "Parsed ${it.size} dependency versions from list." }
+            val header = treeIterator.next()
+            if (!treeIterator.hasNext() || header != "Packages") {
+                throw IOException("Unexpected dependency tree header '$header'.")
             }
+
+            val root = TreeLine.parse(treeIterator.next())
+            if (!treeIterator.hasNext() || root.name != projectId.name) {
+                throw IOException("Unexpected dependency tree root '$root'.")
+            }
+
+            // The textual tree representation uses an indent of 2 spaces between levels.
+            buildDependencySubTree(treeIterator, root.level + 2, scopeDependencies)
         }
 
         // A map of package IDs to enriched package information.
         val allPackages = mutableMapOf<Identifier, Package>()
 
-        val externalChildren = mapParentsToChildren("external")
-        val externalVersions = mapNamesToVersions("external")
         val externalDependencies = sortedSetOf<PackageReference>()
-        buildDependencyTree(projectId.name, allPackages, externalChildren, externalVersions, externalDependencies)
+        buildDependencyTree("external", externalDependencies, allPackages)
 
-        val testChildren = mapParentsToChildren("test")
-        val testVersions = mapNamesToVersions("test")
         val testDependencies = sortedSetOf<PackageReference>()
-        buildDependencyTree(projectId.name, allPackages, testChildren, testVersions, testDependencies)
+        buildDependencyTree("test", testDependencies, allPackages)
 
-        val benchChildren = mapParentsToChildren("bench")
-        val benchVersions = mapNamesToVersions("bench")
         val benchDependencies = sortedSetOf<PackageReference>()
-        buildDependencyTree(projectId.name, allPackages, benchChildren, benchVersions, benchDependencies)
+        buildDependencyTree("bench", benchDependencies, allPackages)
 
         val scopes = sortedSetOf(
             Scope("external", externalDependencies),
@@ -176,41 +199,6 @@ class Stack(
         )
 
         return ProjectAnalyzerResult(project, allPackages.values.map { it.toCuratedPackage() }.toSortedSet())
-    }
-
-    private fun buildDependencyTree(
-        parentName: String, allPackages: MutableMap<Identifier, Package>,
-        childMap: Map<String, List<String>>, versionMap: Map<String, String>,
-        scopeDependencies: SortedSet<PackageReference>
-    ) {
-        childMap[parentName]?.let { children ->
-            children.forEach { childName ->
-                val pkgId = Identifier(
-                    type = "Hackage",
-                    namespace = "",
-                    name = childName,
-                    version = versionMap[childName].orEmpty()
-                )
-
-                val pkgFallback = Package.EMPTY.copy(id = pkgId, purl = pkgId.toPurl())
-
-                val pkg = allPackages.getOrPut(pkgId) {
-                    if (pkgId.type == "Hackage") {
-                        // Enrich the package with additional meta-data from Hackage.
-                        downloadCabalFile(pkgId)?.let {
-                            parseCabalFile(it)
-                        } ?: pkgFallback
-                    } else {
-                        pkgFallback
-                    }
-                }
-
-                val packageRef = pkg.toReference()
-                scopeDependencies += packageRef
-
-                buildDependencyTree(childName, allPackages, childMap, versionMap, packageRef.dependencies)
-            }
-        } ?: log.debug { "No dependencies found for '$parentName'." }
     }
 
     private fun getPackageUrl(name: String, version: String) =
