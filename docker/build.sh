@@ -27,5 +27,4 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "Building ORT..."
 
-buildWithoutContext $PROJECT_DIR/docker/build/Dockerfile ort-build:latest && \
-    runGradleWrapper ort-build :cli:installDist :cli:distTar
+runGradleWrapper openjdk:8-jdk-alpine3.9 :cli:installDist :cli:distTar

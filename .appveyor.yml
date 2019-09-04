@@ -75,9 +75,9 @@ build_script:
 
 test_script:
   - if "%APPVEYOR_SCHEDULED_BUILD%"=="True" (
-      gradlew --stacktrace dokkaJar check
+      gradlew --stacktrace dokkaJar checkCopyright check
     ) else (
-      gradlew --stacktrace -Dkotlintest.tags.exclude=ExpensiveTag check
+      gradlew --stacktrace -Dkotlintest.tags.exclude=ExpensiveTag checkCopyright check
     )
 
 on_finish:
