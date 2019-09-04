@@ -30,11 +30,7 @@ import com.here.ort.model.OutputFormat
 import com.here.ort.model.config.ScannerConfiguration
 import com.here.ort.model.mapper
 import com.here.ort.model.readValue
-import com.here.ort.scanner.LocalScanner
-import com.here.ort.scanner.ScanResultsStorage
-import com.here.ort.scanner.Scanner
-import com.here.ort.scanner.ScannerFactory
-import com.here.ort.scanner.TOOL_NAME
+import com.here.ort.scanner.*
 import com.here.ort.scanner.scanners.ScanCode
 import com.here.ort.scanner.storages.LocalFileStorage
 import com.here.ort.scanner.storages.SCAN_RESULTS_FILE_NAME
@@ -98,7 +94,8 @@ object ScannerCommand : CommandWithHelp() {
     private var downloadDir: File? = null
 
     @Parameter(
-        description = "The scanner to use.",
+        description = "The scanner to use for scanning the source code of projects and packages. Use " +
+                "--project-scanner to use a different scanner for projects only.",
         names = ["--scanner", "-s"],
         converter = ScannerConverter::class,
         order = PARAMETER_ORDER_OPTIONAL
@@ -106,11 +103,27 @@ object ScannerCommand : CommandWithHelp() {
     private var scannerFactory: ScannerFactory = ScanCode.Factory()
 
     @Parameter(
-        description = "The path to a configuration file.",
+        description = "The scanner to use for scanning the source code of projects and packages. Use " +
+                "--project-scanner to use a different scanner for projects only.",
+        names = ["--project-scanner"],
+        converter = ScannerConverter::class,
+        order = PARAMETER_ORDER_OPTIONAL
+    )
+    private var projectScannerFactory: ScannerFactory = ScanCode.Factory()
+
+    @Parameter(
+        description = "The path to a configuration file for the scanner.",
         names = ["--config", "-c"],
         order = PARAMETER_ORDER_OPTIONAL
     )
     private var configFile: File? = null
+
+    @Parameter(
+        description = "The path to a configuration file for the project scanner.",
+        names = ["--project-config"],
+        order = PARAMETER_ORDER_OPTIONAL
+    )
+    private var projectConfigFile: File? = null
 
     @Parameter(
         description = "The list of output formats to be used for the ORT result file(s).",
@@ -119,7 +132,7 @@ object ScannerCommand : CommandWithHelp() {
     )
     private var outputFormats = listOf(OutputFormat.YAML)
 
-    private fun configureScanner(configFile: File?): Scanner {
+    private fun configureScanner(factory: ScannerFactory, configFile: File?): Scanner {
         val config = configFile?.expandTilde()?.let {
             require(it.isFile) {
                 "The provided configuration file '$it' is not actually a file."
@@ -145,7 +158,7 @@ object ScannerCommand : CommandWithHelp() {
 
         configuredStorages.forEach { ScanResultsStorage.configure(it) }
 
-        val scanner = scannerFactory.create(config)
+        val scanner = factory.create(config)
 
         println("Using scanner '${scanner.scannerName}' with storage '${ScanResultsStorage.storage.name}'.")
 
@@ -176,7 +189,7 @@ object ScannerCommand : CommandWithHelp() {
         }
 
         val absoluteOutputDir = outputDir.expandTilde().normalize()
-        val absoluteNativeOutputDir = absoluteOutputDir.resolve("native-scan-results")
+        val absoluteResultsDir = absoluteOutputDir.resolve("native-scan-results")
 
         val outputFiles = outputFormats.distinct().map { format ->
             File(absoluteOutputDir, "scan-result.${format.fileExtension}")
@@ -188,30 +201,35 @@ object ScannerCommand : CommandWithHelp() {
             return 2
         }
 
-        if (absoluteNativeOutputDir.exists() && absoluteNativeOutputDir.list().isNotEmpty()) {
-            log.error { "The directory '$absoluteNativeOutputDir' must not contain any files yet." }
+        if (absoluteResultsDir.exists() && absoluteResultsDir.list().isNotEmpty()) {
+            log.error { "The directory '$absoluteResultsDir' must not contain any files yet." }
             return 2
         }
 
-        val absoluteDownloadDir = downloadDir?.expandTilde()
-        require(absoluteDownloadDir?.exists() != true) {
+        val absoluteDownloadDir = downloadDir?.expandTilde() ?: absoluteOutputDir.resolve("downloads")
+        require(!absoluteDownloadDir.exists()) {
             "The download directory '$absoluteDownloadDir' must not exist yet."
         }
 
-        val scanner = configureScanner(configFile)
+        val scanner = configureScanner(scannerFactory, configFile)
+        val projectScanner = configureScanner(projectScannerFactory, projectConfigFile)
 
-        val ortResult = ortFile?.expandTilde()?.let {
-            scanner.scanOrtResult(
-                it, absoluteNativeOutputDir,
-                absoluteDownloadDir ?: absoluteOutputDir.resolve("downloads"), scopesToScan.toSet()
+        val ortResult = ortFile?.expandTilde()?.let { ortResultFile ->
+            scanOrtResult(
+                ortResultFile,
+                scopesToScan.toSet(),
+                scanner,
+                projectScanner,
+                absoluteDownloadDir,
+                absoluteResultsDir
             )
         } ?: run {
-            require(scanner is LocalScanner) {
-                "To scan local files the chosen scanner must be a local scanner."
+            require(projectScanner is LocalScanner) {
+                "To scan local files the chosen project scanner must be a local scanner."
             }
 
             val absoluteInputPath = inputPath!!.expandTilde().normalize()
-            scanner.scanInputPath(absoluteInputPath, absoluteNativeOutputDir)
+            projectScanner.scanInputPath(absoluteInputPath, absoluteResultsDir)
         }
 
         outputFiles.forEach { file ->

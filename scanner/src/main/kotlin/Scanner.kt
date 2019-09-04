@@ -45,6 +45,119 @@ const val TOOL_NAME = "scanner"
 const val HTTP_CACHE_PATH = "$TOOL_NAME/cache/http"
 
 /**
+ * Scan the [Project]s and [Package]s specified in [ortResultFile] with [scanner] and [projectScanner], respectively. If
+ * [scopesToScan] is not empty, limit scanning of packages to the specified scopes. The [downloadDirectory] is used to
+ * download the source code to for scanning, scan results are stored in [resultsDirectory]. Scan results are returned as
+ * an part of a new [OrtResult].
+ */
+fun scanOrtResult(
+    ortResultFile: File,
+    scopesToScan: Set<String> = emptySet(),
+    scanner: Scanner,
+    projectScanner: Scanner = scanner,
+    downloadDirectory: File,
+    resultsDirectory: File
+): OrtResult {
+    require(ortResultFile.isFile) {
+        "Provided path for the configuration does not refer to a file: ${ortResultFile.absolutePath}"
+    }
+
+    val startTime = Instant.now()
+
+    val ortResult = ortResultFile.readValue<OrtResult>()
+
+    requireNotNull(ortResult.analyzer) {
+        "The provided ORT result file '${ortResultFile.invariantSeparatorsPath}' does not contain an analyzer " +
+                "result."
+    }
+
+    val analyzerResult = ortResult.analyzer!!.result
+
+    // Add the projects as packages to scan.
+    val consolidatedProjectPackageMap = Downloader.consolidateProjectPackagesByVcs(analyzerResult.projects)
+    val consolidatedReferencePackages = consolidatedProjectPackageMap.keys.map { it.toCuratedPackage() }
+
+    val projectScanScopes = if (scopesToScan.isNotEmpty()) {
+        log.info { "Limiting scan to scopes $scopesToScan." }
+
+        analyzerResult.projects.map { project ->
+            project.scopes.map { it.name }.partition { it in scopesToScan }.let {
+                ProjectScanScopes(project.id, it.first.toSortedSet(), it.second.toSortedSet())
+            }
+        }
+    } else {
+        analyzerResult.projects.map { project ->
+            val scopes = project.scopes.map { it.name }
+            ProjectScanScopes(project.id, scopes.toSortedSet(), sortedSetOf())
+        }
+    }.toSortedSet()
+
+    val curatedPackages = if (scopesToScan.isNotEmpty()) {
+        consolidatedReferencePackages + analyzerResult.packages.filter { (pkg, _) ->
+            analyzerResult.projects.any { project ->
+                project.scopes.any { it.name in scopesToScan && pkg.id in it }
+            }
+        }
+    } else {
+        consolidatedReferencePackages + analyzerResult.packages
+    }.toSortedSet()
+
+    val packagesToScan = curatedPackages.map { it.pkg }
+    val results = runBlocking { scanner.scanPackages(packagesToScan, resultsDirectory, downloadDirectory) }
+    val resultContainers = results.map { (pkg, results) ->
+        ScanResultContainer(pkg.id, results)
+    }.toSortedSet()
+
+    // Add scan results from de-duplicated project packages to result.
+    consolidatedProjectPackageMap.forEach { (referencePackage, deduplicatedPackages) ->
+        resultContainers.find { it.id == referencePackage.id }?.let { resultContainer ->
+            deduplicatedPackages.forEach { deduplicatedPackage ->
+                analyzerResult.projects.find { it.id == deduplicatedPackage.id }?.let { project ->
+                    resultContainers += filterProjectScanResults(project, resultContainer)
+                } ?: throw IllegalArgumentException(
+                    "Could not find project '${deduplicatedPackage.id.toCoordinates()}'."
+                )
+            }
+
+            analyzerResult.projects.find { it.id == referencePackage.id }?.let { project ->
+                resultContainers.remove(resultContainer)
+                resultContainers += filterProjectScanResults(project, resultContainer)
+            } ?: throw IllegalArgumentException("Could not find project '${referencePackage.id.toCoordinates()}'.")
+        }
+    }
+
+    val scanRecord = ScanRecord(projectScanScopes, resultContainers, ScanResultsStorage.storage.stats)
+
+    val endTime = Instant.now()
+
+    val scannerRun = ScannerRun(startTime, endTime, Environment(), config, scanRecord)
+
+    // Note: This overwrites any existing ScannerRun from the input file.
+    return ortResult.copy(scanner = scannerRun).apply {
+        data += ortResult.data
+    }
+}
+
+/**
+ * Filter the scan results in the [resultContainer] for only license findings that are in the same subdirectory as
+ * the [project]s definition file.
+ */
+private fun filterProjectScanResults(project: Project, resultContainer: ScanResultContainer): ScanResultContainer {
+    // Do not filter the results if the definition file is in the root of the repository.
+    val parentPath = File(project.definitionFilePath).parentFile?.path ?: return resultContainer
+
+    val filteredResults = resultContainer.results.map { result ->
+        if (result.provenance.sourceArtifact != null) {
+            // Do not filter the result if a source artifact was scanned.
+            result
+        } else {
+            result.filterPath(parentPath)
+        }
+    }
+    return ScanResultContainer(project.id, filteredResults)
+}
+
+/**
  * The class to run license / copyright scanners. The signatures of public functions in this class define the library
  * API.
  */
@@ -75,114 +188,4 @@ abstract class Scanner(val scannerName: String, protected val config: ScannerCon
      */
     fun getSpdxLicenseIdString(license: String) =
         SpdxLicense.forId(license)?.id ?: "LicenseRef-$scannerName-$license"
-
-    /**
-     * Scan the [Project]s and [Package]s specified in [ortResultFile] and store the scan results in [outputDirectory].
-     * The [downloadDirectory] is used to download the source code to for scanning. Return scan results as an
-     * [OrtResult].
-     */
-    fun scanOrtResult(
-        ortResultFile: File,
-        outputDirectory: File,
-        downloadDirectory: File,
-        scopesToScan: Set<String> = emptySet()
-    ): OrtResult {
-        require(ortResultFile.isFile) {
-            "Provided path for the configuration does not refer to a file: ${ortResultFile.absolutePath}"
-        }
-
-        val startTime = Instant.now()
-
-        val ortResult = ortResultFile.readValue<OrtResult>()
-
-        requireNotNull(ortResult.analyzer) {
-            "The provided ORT result file '${ortResultFile.invariantSeparatorsPath}' does not contain an analyzer " +
-                    "result."
-        }
-
-        val analyzerResult = ortResult.analyzer!!.result
-
-        // Add the projects as packages to scan.
-        val consolidatedProjectPackageMap = Downloader.consolidateProjectPackagesByVcs(analyzerResult.projects)
-        val consolidatedReferencePackages = consolidatedProjectPackageMap.keys.map { it.toCuratedPackage() }
-
-        val projectScanScopes = if (scopesToScan.isNotEmpty()) {
-            log.info { "Limiting scan to scopes $scopesToScan." }
-
-            analyzerResult.projects.map { project ->
-                project.scopes.map { it.name }.partition { it in scopesToScan }.let {
-                    ProjectScanScopes(project.id, it.first.toSortedSet(), it.second.toSortedSet())
-                }
-            }
-        } else {
-            analyzerResult.projects.map { project ->
-                val scopes = project.scopes.map { it.name }
-                ProjectScanScopes(project.id, scopes.toSortedSet(), sortedSetOf())
-            }
-        }.toSortedSet()
-
-        val curatedPackages = if (scopesToScan.isNotEmpty()) {
-            consolidatedReferencePackages + analyzerResult.packages.filter { (pkg, _) ->
-                analyzerResult.projects.any { project ->
-                    project.scopes.any { it.name in scopesToScan && pkg.id in it }
-                }
-            }
-        } else {
-            consolidatedReferencePackages + analyzerResult.packages
-        }.toSortedSet()
-
-        val packagesToScan = curatedPackages.map { it.pkg }
-        val results = runBlocking { scanPackages(packagesToScan, outputDirectory, downloadDirectory) }
-        val resultContainers = results.map { (pkg, results) ->
-            ScanResultContainer(pkg.id, results)
-        }.toSortedSet()
-
-        // Add scan results from de-duplicated project packages to result.
-        consolidatedProjectPackageMap.forEach { (referencePackage, deduplicatedPackages) ->
-            resultContainers.find { it.id == referencePackage.id }?.let { resultContainer ->
-                deduplicatedPackages.forEach { deduplicatedPackage ->
-                    analyzerResult.projects.find { it.id == deduplicatedPackage.id }?.let { project ->
-                        resultContainers += filterProjectScanResults(project, resultContainer)
-                    } ?: throw IllegalArgumentException(
-                        "Could not find project '${deduplicatedPackage.id.toCoordinates()}'."
-                    )
-                }
-
-                analyzerResult.projects.find { it.id == referencePackage.id }?.let { project ->
-                    resultContainers.remove(resultContainer)
-                    resultContainers += filterProjectScanResults(project, resultContainer)
-                } ?: throw IllegalArgumentException("Could not find project '${referencePackage.id.toCoordinates()}'.")
-            }
-        }
-
-        val scanRecord = ScanRecord(projectScanScopes, resultContainers, ScanResultsStorage.storage.stats)
-
-        val endTime = Instant.now()
-
-        val scannerRun = ScannerRun(startTime, endTime, Environment(), config, scanRecord)
-
-        // Note: This overwrites any existing ScannerRun from the input file.
-        return ortResult.copy(scanner = scannerRun).apply {
-            data += ortResult.data
-        }
-    }
-
-    /**
-     * Filter the scan results in the [resultContainer] for only license findings that are in the same subdirectory as
-     * the [project]s definition file.
-     */
-    private fun filterProjectScanResults(project: Project, resultContainer: ScanResultContainer): ScanResultContainer {
-        // Do not filter the results if the definition file is in the root of the repository.
-        val parentPath = File(project.definitionFilePath).parentFile?.path ?: return resultContainer
-
-        val filteredResults = resultContainer.results.map { result ->
-            if (result.provenance.sourceArtifact != null) {
-                // Do not filter the result if a source artifact was scanned.
-                result
-            } else {
-                result.filterPath(parentPath)
-            }
-        }
-        return ScanResultContainer(project.id, filteredResults)
-    }
 }

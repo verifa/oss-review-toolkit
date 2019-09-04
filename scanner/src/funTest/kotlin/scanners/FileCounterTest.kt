@@ -22,6 +22,7 @@ package com.here.ort.scanner.scanners
 import com.here.ort.model.config.ScannerConfiguration
 import com.here.ort.model.yamlMapper
 import com.here.ort.scanner.ScanResultsStorage
+import com.here.ort.scanner.scanOrtResult
 import com.here.ort.utils.safeDeleteRecursively
 import com.here.ort.utils.test.patchActualResult
 import com.here.ort.utils.test.patchExpectedResult
@@ -34,13 +35,11 @@ import java.io.File
 class FileCounterTest : StringSpec() {
     private val assetsDir = File("src/funTest/assets")
 
-    private lateinit var outputRootDir: File
     private lateinit var outputDir: File
 
     init {
         "Gradle project scan results for a given analyzer result are correct".config(invocations = 3) {
-            outputRootDir = createTempDir()
-            outputDir = File(outputRootDir, "output")
+            outputDir = createTempDir()
 
             val analyzerResultFile = File(assetsDir, "analyzer-result.yml")
             val expectedResult = patchExpectedResult(
@@ -48,12 +47,17 @@ class FileCounterTest : StringSpec() {
             )
 
             val scanner = FileCounter("FileCounter", ScannerConfiguration())
-            val ortResult = scanner.scanOrtResult(analyzerResultFile, outputDir, outputDir.resolve("downloads"))
+            val ortResult = scanOrtResult(
+                analyzerResultFile,
+                scanner = scanner,
+                downloadDirectory = outputDir.resolve("downloads"),
+                resultsDirectory = outputDir.resolve("native-scan-results")
+            )
             val result = yamlMapper.writeValueAsString(ortResult)
 
             patchActualResult(result, patchDownloadTime = true, patchStartAndEndTime = true) shouldBe expectedResult
 
-            outputRootDir.safeDeleteRecursively(force = true)
+            outputDir.safeDeleteRecursively(force = true)
             ScanResultsStorage.storage.stats.reset()
         }
     }
