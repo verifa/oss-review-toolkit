@@ -11,9 +11,13 @@ YarnPlugin.apply(project).version = "1.17.3"
 // The Yarn plugin registers tasks always on the root project.
 val kotlinNodeJsSetup by rootProject.tasks.existing(NodeJsSetupTask::class)
 
-var nodeBinDir = kotlinNodeJsSetup.get().destination
-if (!Os.isFamily(Os.FAMILY_WINDOWS)) nodeBinDir = nodeBinDir.resolve("bin")
-logger.quiet("Using Node from directory '$nodeBinDir'.")
+val nodeInstallationDir = kotlinNodeJsSetup.get().destination
+val nodeExecutable = if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+    nodeInstallationDir.resolve("node.exe")
+} else {
+    nodeInstallationDir.resolve("bin/node")
+}
+logger.quiet("Using Node executable file at '$nodeExecutable'.")
 
 // Work-around for the YarnSetupTask using the wrong action annotation, see
 // https://github.com/JetBrains/kotlin/pull/2563.
@@ -26,9 +30,8 @@ val fixedKotlinYarnSetup by tasks.registering(FixedYarnSetupTask::class) {
     dependsOn(kotlinNodeJsSetup)
 }
 
-val yarnCommand = if (Os.isFamily(Os.FAMILY_WINDOWS)) "yarn.cmd" else "yarn"
-val yarnBinFile = fixedKotlinYarnSetup.get().destination.resolve("bin/$yarnCommand")
-logger.quiet("Using Yarn executable at '$yarnBinFile'.")
+val yarnJsFile = fixedKotlinYarnSetup.get().destination.resolve("bin/yarn.js")
+logger.quiet("Using Yarn JavaScript file at '$yarnJsFile'.")
 
 tasks.addRule("Pattern: yarn<Command>") {
     val taskName = this
@@ -36,12 +39,8 @@ tasks.addRule("Pattern: yarn<Command>") {
         val command = taskName.removePrefix("yarn").decapitalize()
 
         tasks.register<Exec>(taskName) {
-            // Prepend the Node.js installation directory to the PATH environment of the Yarn process.
-            val envPathWithNode = nodeBinDir.path + File.pathSeparator + environment["PATH"]
-            environment("PATH", envPathWithNode)
-
             // Execute the installed Yarn version.
-            commandLine = listOf(yarnBinFile.path, command)
+            commandLine = listOf(nodeExecutable.path, yarnJsFile, command)
         }
     }
 }
