@@ -22,10 +22,7 @@ package com.here.ort.model.util
 import com.here.ort.model.CopyrightFinding
 import com.here.ort.model.CopyrightFindings
 import com.here.ort.model.LicenseFinding
-import com.here.ort.model.LicenseFindings
 import com.here.ort.spdx.LicenseFileMatcher
-
-import java.util.SortedSet
 
 import kotlin.math.absoluteValue
 
@@ -49,10 +46,9 @@ class FindingsMatcher(
     /**
      * Get the licenses found in all commonly named license files, if any, or an empty list otherwise.
      */
-    private fun getRootLicenses(licenseFindings: Collection<LicenseFinding>): List<String> =
+    private fun getRootLicenses(licenseFindings: Collection<LicenseFinding>): List<LicenseFinding> =
         licenseFindings
             .filter { licenseFileMatcher.matches(it.location.path) }
-            .map { it.license }
             .distinct()
 
     /**
@@ -62,23 +58,15 @@ class FindingsMatcher(
     private fun getClosestCopyrightStatements(
         copyrights: List<CopyrightFinding>,
         licenseStartLine: Int
-    ): Set<CopyrightFindings> {
+    ): Set<CopyrightFinding> {
         require(copyrights.map { it.location.path }.distinct().size <= 1) {
             "Given copyright statements must all point to the same file."
         }
 
-        val closestCopyrights = copyrights.filter {
+        return copyrights.filter {
             (it.location.startLine - licenseStartLine).absoluteValue <= toleranceLines
-        }
-
-        return closestCopyrights.map { it.toCopyrightFindings() }.toSet()
+        }.toSet()
     }
-
-    private fun CopyrightFinding.toCopyrightFindings() =
-        CopyrightFindings(
-            statement = statement,
-            locations = sortedSetOf(location)
-        )
 
     /**
      * Associate copyright findings to license findings within a single file.
@@ -86,14 +74,14 @@ class FindingsMatcher(
     private fun associateFileFindings(
         licenses: List<LicenseFinding>,
         copyrights: List<CopyrightFinding>,
-        rootLicenses: Collection<String>
-    ): Map<String, Set<CopyrightFindings>> {
+        rootLicenses: Collection<LicenseFinding>
+    ): Map<LicenseFinding, Set<CopyrightFinding>> {
         require((licenses.map { it.location.path } + copyrights.map { it.location.path }).distinct().size <= 1) {
             "The given license and copyright findings must all point to the same file."
         }
 
-        val copyrightsForLicenses = mutableMapOf<String, MutableSet<CopyrightFindings>>()
-        val allCopyrightStatements = copyrights.map { it.toCopyrightFindings() }.toMutableSet()
+        val copyrightsForLicenses = mutableMapOf<LicenseFinding, MutableSet<CopyrightFinding>>()
+        val allCopyrightStatements = copyrights.toMutableSet()
 
         when (licenses.size) {
             0 -> {
@@ -103,7 +91,7 @@ class FindingsMatcher(
 
             1 -> {
                 // If there is only a single license finding, associate all copyright findings with that license.
-                licenses.associateByTo(copyrightsForLicenses, { it.license }, { allCopyrightStatements })
+                licenses.associateByTo(copyrightsForLicenses, { it }, { allCopyrightStatements })
             }
 
             else -> {
@@ -114,7 +102,7 @@ class FindingsMatcher(
                         copyrights = copyrights,
                         licenseStartLine = it.location.startLine
                     )
-                    copyrightsForLicenses.getOrPut(it.license) { mutableSetOf() } += closestCopyrights
+                    copyrightsForLicenses.getOrPut(it) { mutableSetOf() } += closestCopyrights
                 }
             }
         }
@@ -130,40 +118,23 @@ class FindingsMatcher(
      * in the result while all given [licenseFindings] are contained in the result exactly once.
      */
     fun match(licenseFindings: Collection<LicenseFinding>, copyrightFindings: Collection<CopyrightFinding>):
-            Set<LicenseFindings> {
+            Map<LicenseFinding, Set<CopyrightFinding>> {
         val licenseFindingsByPath = licenseFindings.groupBy { it.location.path }
         val copyrightFindingsByPath = copyrightFindings.groupBy { it.location.path }
         val paths = (licenseFindingsByPath.keys + copyrightFindingsByPath.keys).toSet()
         val rootLicenses = getRootLicenses(licenseFindings)
 
-        val locationsForLicenses = licenseFindings
-            .groupBy({ it.license }, { it.location })
-            .mapValues { it.value.toSortedSet() }
-            .toSortedMap()
-
-        val copyrightsForLicenses = sortedMapOf<String, SortedSet<CopyrightFindings>>()
+        val copyrightsForLicenses = sortedMapOf<LicenseFinding, MutableSet<CopyrightFinding>>()
         paths.forEach { path ->
             val licenses = licenseFindingsByPath[path].orEmpty()
             val copyrights = copyrightFindingsByPath[path].orEmpty()
             val findings = associateFileFindings(licenses, copyrights, rootLicenses)
 
-            findings.forEach { (license, copyrightsForLicense) ->
-                copyrightsForLicenses.getOrPut(license) { sortedSetOf() }.let { copyrightFindings ->
-                    copyrightsForLicense.forEach { copyrightFinding ->
-                        copyrightFindings.find { it.statement == copyrightFinding.statement }?.let {
-                            it.locations += copyrightFinding.locations
-                        } ?: copyrightFindings.add(copyrightFinding)
-                    }
-                }
+            findings.forEach { (licenseFinding, copyrightFindings) ->
+                copyrightsForLicenses.getOrPut(licenseFinding) { mutableSetOf() }.addAll(copyrightFindings)
             }
         }
 
-        return (copyrightsForLicenses.keys + locationsForLicenses.keys).map { license ->
-            LicenseFindings(
-                license,
-                locationsForLicenses[license] ?: sortedSetOf(),
-                copyrightsForLicenses[license] ?: sortedSetOf()
-            )
-        }.toSet()
+        return copyrightsForLicenses
     }
 }
