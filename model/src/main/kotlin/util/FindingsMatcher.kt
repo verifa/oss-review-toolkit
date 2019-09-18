@@ -132,7 +132,7 @@ class FindingsMatcher(
      * in the result while all given [licenseFindings] are contained in the result exactly once.
      */
     fun match(licenseFindings: Collection<LicenseFinding>, copyrightFindings: Collection<CopyrightFinding>):
-            SortedSet<LicenseFindings> {
+            Set<LicenseFindings> {
         val licenseFindingsByPath = licenseFindings.groupBy { it.location.path }
         val copyrightFindingsByPath = copyrightFindings.groupBy { it.location.path }
         val paths = (licenseFindingsByPath.keys + copyrightFindingsByPath.keys).toSet()
@@ -166,6 +166,6 @@ class FindingsMatcher(
                 locationsForLicenses[license] ?: sortedSetOf(),
                 copyrightsForLicenses[license] ?: sortedSetOf()
             )
-        }.toSortedSet()
+        }.toSet()
     }
 }
