@@ -23,7 +23,7 @@ val kotlintestVersion: String by project
 plugins {
     kotlin("jvm") apply false
 
-    id("io.gitlab.arturbosch.detekt") apply false
+    id("io.gitlab.arturbosch.detekt")
     id("org.jetbrains.dokka") apply false
 
     id("com.github.ben-manes.versions")
@@ -70,6 +70,21 @@ tasks.named<DependencyUpdatesTask>("dependencyUpdates") {
             }
         }
     }
+}
+
+repositories {
+    jcenter()
+}
+
+detekt {
+    // Align the detekt core and plugin versions.
+    toolVersion = detektPluginVersion
+
+    // Only configure differences to the default.
+    buildUponDefaultConfig = true
+    config = files(".detekt.yml")
+
+    input = files("buildSrc", "build.gradle.kts")
 }
 
 subprojects {
