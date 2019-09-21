@@ -134,10 +134,26 @@ open class Conan(
         val workingDir = definitionFile.parentFile
         val dependenciesJson = run(workingDir, "info", ".", "-j").stdout
         val rootNode = jsonMapper.readTree(dependenciesJson)
+
+        log.info { "First package: '${rootNode.first()}'" }
+        log.info { "Remainder: '${rootNode.minusElement(rootNode.first())}'" }
+
+//        val projectPackage = extractPackage(rootNode.first(), workingDir)
+        val packageList = rootNode.minusElement(rootNode.first())
+
         log.info { "Extracting packages from '$definitionFile'" }
         // Extract the packages, returns a map<String, Package>
-        val packages = extractPackages(rootNode, workingDir)
-        val projectPackage = extractPackage(rootNode, workingDir)
+        val packages = extractPackages(packageList, workingDir)
+//        val projectPackage = extractPackage(rootNode, workingDir)
+        val projPackage = rootNode.first()["requires"][0].textValueOrEmpty()
+        log.info { "Potential pp: '$projPackage'" }
+        val pp = packageList.find {
+            it["reference"].textValueOrEmpty() == projPackage
+        }
+
+        val projectPackage = extractPackage(pp!!, workingDir)
+
+        log.info { "Got projectPackage: '$pp'" }
 
         val dependenciesScope = Scope(
             name = SCOPE_NAME_DEPENDENCIES,
@@ -212,7 +228,7 @@ open class Conan(
             vcs = extractVcsInfo(node)
         )
 
-    private fun extractPackages(node: JsonNode, workingDir: File): Map<String, Package> {
+    private fun extractPackages(node: List<JsonNode>, workingDir: File): Map<String, Package> {
 
         val result = mutableMapOf<String, Package>()
 
