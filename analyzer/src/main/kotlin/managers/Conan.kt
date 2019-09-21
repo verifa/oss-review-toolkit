@@ -68,17 +68,8 @@ open class Conan(
 
     override fun command(workingDir: File?) = "conan"
 
-    // TODO: Repetitious, refactor.
-    fun runDescription(pkgName: String, workingDir: File): String {
-        return run(workingDir, "inspect", pkgName, "--raw", "description").stdout
-    }
-
-    fun runVersion(pkgName: String, workingDir: File): String {
-        return run(workingDir, "inspect", pkgName, "--raw", "version").stdout
-    }
-
-    fun runName(pkgName: String, workingDir: File): String {
-        return run(workingDir, "inspect", pkgName, "--raw", "name").stdout
+    private fun runInspectRawField(pkgName: String, workingDir: File, field: String): String {
+        return run(workingDir, "inspect", pkgName, "--raw", field).stdout
     }
     /*
     override fun getVersionRequirement(): Requirement = Requirement.buildStrict(REQUIRED_CONAN_VERSION)
@@ -196,34 +187,16 @@ open class Conan(
         Identifier(
             type = "Conan",
             namespace = "",
-            name = extractPackageName(node, workingDir),
-            version = extractPackageVersion(node, workingDir)
+            name = extractPackageField(node, workingDir, "name"),
+            version = extractPackageField(node, workingDir, "version")
         )
 
-    // TODO: refactor and clean up the listOf check
-    private fun extractPackageDescription(node: JsonNode, workingDir: File): String {
-        if (!listOf("conanfile.txt", "conanfile.py", "", " ").contains(node[ "display_name" ].textValueOrEmpty())) {
-            val pkgDescription = runDescription(node["display_name"].textValueOrEmpty(), workingDir)
-            log.debug { pkgDescription }
-            return pkgDescription
-        }
-        return node["display_name"].textValueOrEmpty()
-    }
-    // TODO: refactor and clean up the listOf check
-    private fun extractPackageVersion(node: JsonNode, workingDir: File): String {
+    // Runs 'conan inspect --raw' over a specified package to extract specified field.
+    private fun extractPackageField(node: JsonNode, workingDir: File, field: String): String {
         if (!listOf("conanfile.txt", "conanfile.py", "", " ").contains(node["display_name"].textValueOrEmpty())) {
-            val pkgVersion = runVersion(node["display_name"].textValueOrEmpty(), workingDir)
-            log.debug { pkgVersion }
-            return pkgVersion
-        }
-        return node["version"].textValueOrEmpty()
-    }
-    // TODO: refactor and clean up the listOf check
-    private fun extractPackageName(node: JsonNode, workingDir: File): String {
-        if (!listOf("conanfile.txt", "conanfile.py", "", " ").contains(node["display_name"].textValueOrEmpty())) {
-            val pkgName = runName(node["display_name"].textValueOrEmpty(), workingDir)
-            log.debug { pkgName }
-            return pkgName
+            val pkgField = runInspectRawField(node["display_name"].textValueOrEmpty(), workingDir, field)
+            log.debug { pkgField }
+            return pkgField
         }
         return node["display_name"].textValueOrEmpty()
     }
@@ -232,7 +205,7 @@ open class Conan(
         Package(
             id = extractPackageId(node, workingDir),
             declaredLicenses = extractDeclaredLicenses(node),
-            description = extractPackageDescription(node, workingDir),
+            description = extractPackageField(node, workingDir, "description"),
             homepageUrl = node["url"].textValueOrEmpty(),
             binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
             sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
