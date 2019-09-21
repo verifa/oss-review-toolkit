@@ -135,25 +135,17 @@ open class Conan(
         val dependenciesJson = run(workingDir, "info", ".", "-j").stdout
         val rootNode = jsonMapper.readTree(dependenciesJson)
 
-        log.info { "First package: '${rootNode.first()}'" }
-        log.info { "Remainder: '${rootNode.minusElement(rootNode.first())}'" }
 
-//        val projectPackage = extractPackage(rootNode.first(), workingDir)
         val packageList = rootNode.minusElement(rootNode.first())
 
-        log.info { "Extracting packages from '$definitionFile'" }
-        // Extract the packages, returns a map<String, Package>
         val packages = extractPackages(packageList, workingDir)
-//        val projectPackage = extractPackage(rootNode, workingDir)
-        val projPackage = rootNode.first()["requires"][0].textValueOrEmpty()
-        log.info { "Potential pp: '$projPackage'" }
-        val pp = packageList.find {
-            it["reference"].textValueOrEmpty() == projPackage
+
+        val projectPackageName = rootNode.first()["requires"][0].textValueOrEmpty()
+        val projectPackageJson = packageList.find {
+            it["reference"].textValueOrEmpty() == projectPackageName
         }
 
-        val projectPackage = extractPackage(pp!!, workingDir)
-
-        log.info { "Got projectPackage: '$pp'" }
+        val projectPackage = extractPackage(projectPackageJson!!, workingDir)
 
         val dependenciesScope = Scope(
             name = SCOPE_NAME_DEPENDENCIES,
