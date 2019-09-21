@@ -206,7 +206,7 @@ open class Conan(
             id = extractPackageId(node, workingDir),
             declaredLicenses = extractDeclaredLicenses(node),
             description = extractPackageField(node, workingDir, "description"),
-            homepageUrl = node["url"].textValueOrEmpty(),
+            homepageUrl = node["homepage"].textValueOrEmpty(),
             binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
             sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
             vcs = extractVcsInfo(node)
