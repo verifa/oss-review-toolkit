@@ -57,7 +57,7 @@ open class Conan(
         private const val SCOPE_NAME_DEV_DEPENDENCIES = "build-requires"
     }
     class Factory : AbstractPackageManagerFactory<Conan>("Conan") {
-        override val globsForDefinitionFiles = listOf("conanfile.txt")
+        override val globsForDefinitionFiles = listOf("conanfile.txt", "conanfile.py")
 
         override fun create(
             analysisRoot: File,
