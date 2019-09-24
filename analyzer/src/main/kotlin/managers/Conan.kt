@@ -129,24 +129,38 @@ open class Conan(
         return dependencies.toSortedSet()
     }
 
+    private fun removeProjectPackage(rootNode: JsonNode, definitionFile: File): List<JsonNode> {
+        val projectPackage: JsonNode? = rootNode.find {
+            //Contains because conanfile.py's reference string often includes other data.
+            it["reference"].textValueOrEmpty().contains(definitionFile.name)
+        }
+        return if (projectPackage != null) {
+            rootNode.minusElement(projectPackage)
+        } else {
+            rootNode.toList<JsonNode>()
+        }
+    }
+
     override fun resolveDependencies(definitionFile: File): ProjectAnalyzerResult? {
         log.info { "Resolving dependencies for: '$definitionFile'" }
         val workingDir = definitionFile.parentFile
         val dependenciesJson = run(workingDir, "info", ".", "-j").stdout
         val rootNode = jsonMapper.readTree(dependenciesJson)
 
-
-        val packageList = rootNode.minusElement(rootNode.first())
+        val packageList = removeProjectPackage(rootNode, definitionFile)
 
         val packages = extractPackages(packageList, workingDir)
 
-        val projectPackageName = rootNode.first()["requires"][0].textValueOrEmpty()
+        val definitionFileJson = rootNode.find {
+            it["reference"].textValueOrEmpty().contains(definitionFile.name)
+        }
+
+        val projectPackageName = definitionFileJson?.get("requires")!![0].textValueOrEmpty()
         val projectPackageJson = packageList.find {
             it["reference"].textValueOrEmpty() == projectPackageName
         }
 
         val projectPackage = extractPackage(projectPackageJson!!, workingDir)
-
         val dependenciesScope = Scope(
             name = SCOPE_NAME_DEPENDENCIES,
             dependencies = extractDependencies(rootNode, SCOPE_NAME_DEPENDENCIES, workingDir)
