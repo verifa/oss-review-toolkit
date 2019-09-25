@@ -127,7 +127,7 @@ open class Conan(
 
     private fun removeProjectPackage(rootNode: JsonNode, definitionFile: File): List<JsonNode> {
         val projectPackage: JsonNode? = rootNode.find {
-            //Contains because conanfile.py's reference string often includes other data.
+            // Contains because conanfile.py's reference string often includes other data.
             it["reference"].textValueOrEmpty().contains(definitionFile.name)
         }
         return if (projectPackage != null) {
@@ -150,11 +150,6 @@ open class Conan(
         val definitionFileJson = rootNode.find {
             it["reference"].textValueOrEmpty().contains(definitionFile.name)
         }
-
-        //val projectPackageName = definitionFileJson?.get("requires")!![0].textValueOrEmpty()
-//        val projectPackageJson = packageList.find {
-//            it["reference"].textValueOrEmpty() == projectPackageName
-//        }
 
         val projectPackage = extractProjectPackage(definitionFileJson!!, definitionFile, workingDir)
         val dependenciesScope = Scope(
@@ -233,38 +228,34 @@ open class Conan(
      *  from the 'requires' field... need to investigate whether this is a sure thing before implementing.
      */
     private fun extractProjectPackage(projectPackageJson: JsonNode, definitionFile: File, workingDir: File): Package {
-        if (definitionFile.name == "conanfile.py") {
-            return Package(
-                id = Identifier(
-                    type = managerName,
-                    namespace = "",
-                    name = runInspectRawField(definitionFile.name, workingDir, "name"),
-                    version = runInspectRawField(definitionFile.name, workingDir, "version")
-                ),
-                declaredLicenses = extractDeclaredLicenses(projectPackageJson),
-                description = runInspectRawField(definitionFile.name, workingDir, "description"),
-                homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
-                binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
-                sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
-                vcs = extractVcsInfo(projectPackageJson)
-            )
-        }
-        else {
-            return Package(
-                id = Identifier(
-                    type = managerName,
-                    namespace = "",
-                    name = projectPackageJson["reference"].textValueOrEmpty(),
-                    version = ""
-                ),
-                declaredLicenses = extractDeclaredLicenses(projectPackageJson),
-                description = "",
-                homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
-                binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
-                sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
-                vcs = extractVcsInfo(projectPackageJson)
-            )
-        }
+        if (definitionFile.name == "conanfile.py") return Package(
+            id = Identifier(
+                type = managerName,
+                namespace = "",
+                name = runInspectRawField(definitionFile.name, workingDir, "name"),
+                version = runInspectRawField(definitionFile.name, workingDir, "version")
+            ),
+            declaredLicenses = extractDeclaredLicenses(projectPackageJson),
+            description = runInspectRawField(definitionFile.name, workingDir, "description"),
+            homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
+            binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+            sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+            vcs = extractVcsInfo(projectPackageJson)
+        )
+        return Package(
+            id = Identifier(
+                type = managerName,
+                namespace = "",
+                name = projectPackageJson["reference"].textValueOrEmpty(),
+                version = ""
+            ),
+            declaredLicenses = extractDeclaredLicenses(projectPackageJson),
+            description = "",
+            homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
+            binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+            sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+            vcs = extractVcsInfo(projectPackageJson)
+        )
     }
 
     private fun extractPackages(node: List<JsonNode>, workingDir: File): Map<String, Package> {
