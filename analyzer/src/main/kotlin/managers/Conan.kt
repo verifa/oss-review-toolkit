@@ -86,12 +86,10 @@ open class Conan(
         scopeName: String
     ): SortedSet<PackageReference> {
         val result = mutableSetOf<PackageReference>()
-        log.debug { pkg[scopeName] }
         pkg[ scopeName ]?.forEach {
 
             val childRef = it.textValueOrEmpty()
 
-            log.debug { it.textValueOrEmpty() }
             rootNode.iterator().forEach { child ->
                 if (child["reference"].textValueOrEmpty() == childRef) {
                     log.debug { "Found child. '$childRef'" }
@@ -106,7 +104,6 @@ open class Conan(
                 }
             }
         }
-        log.debug { "Final result of extract deps for pkg '${ pkg["reference"] }': '${ result.toSortedSet() }'" }
         return result.toSortedSet()
     }
     // Runs through each package and extracts list of deps (including transitive)
@@ -121,7 +118,6 @@ open class Conan(
         stack.addAll(rootNode)
         while (!stack.empty()) {
             val pkg = stack.pop()
-            log.debug { "Extracting dependencies from package: '${pkg["reference"]}'" }
             extractDependencyTree(rootNode, workingDir, pkg, scopeName).forEach {
                 dependencies.add(it)
             }
@@ -169,9 +165,6 @@ open class Conan(
             name = SCOPE_NAME_DEV_DEPENDENCIES,
             dependencies = extractDependencies(rootNode, SCOPE_NAME_DEV_DEPENDENCIES, workingDir)
         )
-        log.debug { "require dependencies: '$dependenciesScope'" }
-        log.debug { "build_require dependencies: '$devDependenciesScope'" }
-        log.debug { "Got: '${packages.size},$projectPackage'" }
 
         val project = Project(
             id = projectPackage.id,
@@ -200,7 +193,6 @@ open class Conan(
     private fun extractDeclaredLicenses(node: JsonNode): SortedSet<String> =
         sortedSetOf<String>().apply {
             val license = node["license"]
-            log.debug { "License: $license" }
             license?.forEach {
                 add(it.textValueOrEmpty())
             }
@@ -217,7 +209,6 @@ open class Conan(
     private fun extractPackageField(node: JsonNode, workingDir: File, field: String): String {
         if (!listOf("conanfile.txt", "conanfile.py", "", " ").contains(node["display_name"].textValueOrEmpty())) {
             val pkgField = runInspectRawField(node["display_name"].textValueOrEmpty(), workingDir, field)
-            log.debug { pkgField }
             return pkgField
         }
         return node["display_name"].textValueOrEmpty()
@@ -286,10 +277,8 @@ open class Conan(
         while (!stack.empty()) {
             val currentNode = stack.pop()
             val pkg = extractPackage(currentNode, workingDir)
-            log.debug { "$pkg\n" }
             result["${pkg.id.name}:${pkg.id.version}"] = pkg
         }
-        log.debug { "Final packages: $result" }
         return result
     }
 }
