@@ -155,12 +155,12 @@ open class Conan(
             it["reference"].textValueOrEmpty().contains(definitionFile.name)
         }
 
-        val projectPackageName = definitionFileJson?.get("requires")!![0].textValueOrEmpty()
-        val projectPackageJson = packageList.find {
-            it["reference"].textValueOrEmpty() == projectPackageName
-        }
+        //val projectPackageName = definitionFileJson?.get("requires")!![0].textValueOrEmpty()
+//        val projectPackageJson = packageList.find {
+//            it["reference"].textValueOrEmpty() == projectPackageName
+//        }
 
-        val projectPackage = extractPackage(projectPackageJson!!, workingDir)
+        val projectPackage = extractProjectPackage(definitionFileJson!!, definitionFile, workingDir)
         val dependenciesScope = Scope(
             name = SCOPE_NAME_DEPENDENCIES,
             dependencies = extractDependencies(rootNode, SCOPE_NAME_DEPENDENCIES, workingDir)
@@ -233,6 +233,48 @@ open class Conan(
             sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
             vcs = extractVcsInfo(node)
         )
+
+    /**
+     * Project package options differ depending on which definition file is used:
+     * conanfile.py: allows us to run 'conan inspect conanfile.py' and extract useful project metadata
+     * conanfile.txt: does not allow 'conan inspect conanfile.txt'.
+     * TODO: Format of 'conan info' output of conanfile.txt may be such that we can get project metadata
+     *  from the 'requires' field... need to investigate whether this is a sure thing before implementing.
+     */
+    private fun extractProjectPackage(projectPackageJson: JsonNode, definitionFile: File, workingDir: File): Package {
+        if (definitionFile.name == "conanfile.py") {
+            return Package(
+                id = Identifier(
+                    type = managerName,
+                    namespace = "",
+                    name = runInspectRawField(definitionFile.name, workingDir, "name"),
+                    version = runInspectRawField(definitionFile.name, workingDir, "version")
+                ),
+                declaredLicenses = extractDeclaredLicenses(projectPackageJson),
+                description = runInspectRawField(definitionFile.name, workingDir, "description"),
+                homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
+                binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+                sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+                vcs = extractVcsInfo(projectPackageJson)
+            )
+        }
+        else {
+            return Package(
+                id = Identifier(
+                    type = managerName,
+                    namespace = "",
+                    name = projectPackageJson["reference"].textValueOrEmpty(),
+                    version = ""
+                ),
+                declaredLicenses = extractDeclaredLicenses(projectPackageJson),
+                description = "",
+                homepageUrl = projectPackageJson["homepage"].textValueOrEmpty(),
+                binaryArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+                sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
+                vcs = extractVcsInfo(projectPackageJson)
+            )
+        }
+    }
 
     private fun extractPackages(node: List<JsonNode>, workingDir: File): Map<String, Package> {
 
