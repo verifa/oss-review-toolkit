@@ -43,6 +43,7 @@ ENV \
     PYTHON_VIRTUALENV_VERSION=15.1.0 \
     SBT_VERSION=0.13.13-2 \
     YARN_VERSION=1.17.3 \
+    CONAN_VERSION=1.18 \
     # Scanner versions.
     SCANCODE_VERSION=3.0.2 \
     # Installation directories.
@@ -87,13 +88,14 @@ RUN \
     chmod -R a+rw $FLUTTER_HOME && \
     flutter config --no-analytics && \
     flutter doctor && \
+    pip install conan==$CONAN_VERSION && \
     # Add scanners (in versions known to work).
     curl -sSL https://github.com/nexB/scancode-toolkit/archive/v$SCANCODE_VERSION.tar.gz | \
         tar -zxC /usr/local && \
         # Trigger configuration for end-users.
         /usr/local/scancode-toolkit-$SCANCODE_VERSION/scancode --version && \
         chmod -R o=u /usr/local/scancode-toolkit-$SCANCODE_VERSION && \
-        ln -s /usr/local/scancode-toolkit-$SCANCODE_VERSION/scancode /usr/local/bin/scancode
+        ln -s /usr/local/scancode-toolkit-$SCANCODE_VERSION/scancode /usr/local/bin/scancode 
 
 ARG ORT_VERSION
 ADD ort-$ORT_VERSION.tar .
