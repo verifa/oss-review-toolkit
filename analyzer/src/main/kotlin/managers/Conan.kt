@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 HERE Europe B.V.
+ * Copyright (C) 2019 Verifa Oy.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +45,8 @@ import java.util.Stack
 
 /**
  * The [Conan](https://conan.io/) package manager for C / C++.
+ *
+ * TODO: Add support for python_requires (PythonRequires)
  */
 open class Conan(
     name: String,
@@ -52,9 +55,9 @@ open class Conan(
     repoConfig: RepositoryConfiguration
 ) : PackageManager(name, analysisRoot, analyzerConfig, repoConfig), CommandLineTool {
     companion object {
-        private const val REQUIRED_CONAN_VERSION = "1.3"
+        private const val REQUIRED_CONAN_VERSION = "1.8"
         private const val SCOPE_NAME_DEPENDENCIES = "requires"
-        private const val SCOPE_NAME_DEV_DEPENDENCIES = "build-requires"
+        private const val SCOPE_NAME_DEV_DEPENDENCIES = "build_requires"
     }
     class Factory : AbstractPackageManagerFactory<Conan>("Conan") {
         override val globsForDefinitionFiles = listOf("conanfile.txt", "conanfile.py")
@@ -71,14 +74,14 @@ open class Conan(
     private fun runInspectRawField(pkgName: String, workingDir: File, field: String): String {
         return run(workingDir, "inspect", pkgName, "--raw", field).stdout
     }
-    /*
-    override fun getVersionRequirement(): Requirement = Requirement.buildStrict(REQUIRED_CONAN_VERSION)
+    
+    //TODO:
+    //override fun getVersionRequirement(): Requirement = Requirement.buildStrict(REQUIRED_CONAN_VERSION)
 
-    override fun beforeResolution(definitionFiles: List<File>) =
-        checkVersion(ignoreActualVersion = analyzerConfig.ignoreToolVersions)
-
-    */
-
+    //TODO:
+    //override fun beforeResolution(definitionFiles: List<File>) =
+    //   checkVersion(ignoreActualVersion = analyzerConfig.ignoreToolVersions)
+    
     private fun extractDependencyTree(
         rootNode: JsonNode,
         workingDir: File,
@@ -87,25 +90,28 @@ open class Conan(
     ): SortedSet<PackageReference> {
         val result = mutableSetOf<PackageReference>()
         pkg[ scopeName ]?.forEach {
-
             val childRef = it.textValueOrEmpty()
-
             rootNode.iterator().forEach { child ->
                 if (child["reference"].textValueOrEmpty() == childRef) {
                     log.debug { "Found child. '$childRef'" }
-                    val childScope = SCOPE_NAME_DEPENDENCIES
 
-                    val childDependencies = extractDependencyTree(rootNode, workingDir, child, childScope)
                     val packageReference = PackageReference(
                         id = extractPackageId(child, workingDir),
-                        dependencies = childDependencies
+                        dependencies = extractDependencyTree(rootNode, workingDir, child, SCOPE_NAME_DEPENDENCIES)
                     )
                     result.add(packageReference)
+
+                    val packageDevReference = PackageReference(
+                        id = extractPackageId(child, workingDir),
+                        dependencies = extractDependencyTree(rootNode, workingDir, child, SCOPE_NAME_DEV_DEPENDENCIES)
+                    )
+                    result.add(packageDevReference)
                 }
             }
         }
         return result.toSortedSet()
     }
+
     // Runs through each package and extracts list of deps (including transitive)
     private fun extractDependencies(
         rootNode: JsonNode,
@@ -202,11 +208,7 @@ open class Conan(
 
     // Runs 'conan inspect --raw' over a specified package to extract specified field.
     private fun extractPackageField(node: JsonNode, workingDir: File, field: String): String {
-        if (!listOf("conanfile.txt", "conanfile.py", "", " ").contains(node["display_name"].textValueOrEmpty())) {
-            val pkgField = runInspectRawField(node["display_name"].textValueOrEmpty(), workingDir, field)
-            return pkgField
-        }
-        return node["display_name"].textValueOrEmpty()
+        return runInspectRawField(node["display_name"].textValueOrEmpty(), workingDir, field)
     }
 
     private fun extractPackage(node: JsonNode, workingDir: File) =
@@ -228,6 +230,7 @@ open class Conan(
      *  from the 'requires' field... need to investigate whether this is a sure thing before implementing.
      */
     private fun extractProjectPackage(projectPackageJson: JsonNode, definitionFile: File, workingDir: File): Package {
+        // conanfile.py
         if (definitionFile.name == "conanfile.py") return Package(
             id = Identifier(
                 type = managerName,
@@ -242,6 +245,7 @@ open class Conan(
             sourceArtifact = RemoteArtifact.EMPTY, // TODO: implement me!
             vcs = extractVcsInfo(projectPackageJson)
         )
+        // conanfile.txt
         return Package(
             id = Identifier(
                 type = managerName,
@@ -259,12 +263,9 @@ open class Conan(
     }
 
     private fun extractPackages(node: List<JsonNode>, workingDir: File): Map<String, Package> {
-
         val result = mutableMapOf<String, Package>()
-
         val stack = Stack<JsonNode>()
         stack.addAll(node)
-
         while (!stack.empty()) {
             val currentNode = stack.pop()
             val pkg = extractPackage(currentNode, workingDir)

@@ -1,0 +1,120 @@
+---
+repository:
+  vcs:
+    type: "Git"
+    url: "https://github.com/conan-io/examples.git"
+    revision: "d193029e21720b6dd7d415a1a928206feb666aaa"
+    path: "libraries/protobuf/serialization"
+  vcs_processed:
+    type: "Git"
+    url: "https://github.com/conan-io/examples.git"
+    revision: "d193029e21720b6dd7d415a1a928206feb666aaa"
+    path: "libraries/protobuf/serialization"
+  config: {}
+analyzer:
+  start_time: "2019-10-08T10:06:23.008Z"
+  end_time: "2019-10-08T10:07:03.803Z"
+  environment:
+    ort_version: "0.1.0-beta.0.3915+20191008T100610Z"
+    java_version: "1.8.0_151-1-redhat"
+    os: "Windows 10"
+    variables:
+      OS: "Windows_NT"
+      COMSPEC: "C:\\WINDOWS\\system32\\cmd.exe"
+      TERM: "cygwin"
+      JAVA_HOME: "C:\\Program Files\\RedHat\\java-1.8.0-openjdk-1.8.0.151-1"
+      GOPATH: "C:\\Users\\kalle\\go"
+    tool_versions: {}
+  config:
+    ignore_tool_versions: false
+    allow_dynamic_versions: false
+  result:
+    projects:
+    - id: "Conan::conanfile.txt:"
+      purl: "pkg:conan/conanfile.txt@"
+      definition_file_path: "libraries/protobuf/serialization/conanfile.txt"
+      declared_licenses: []
+      declared_licenses_processed: {}
+      vcs:
+        type: "Git"
+        url: ""
+        revision: ""
+        path: ""
+      vcs_processed:
+        type: "Git"
+        url: "https://github.com/conan-io/examples.git"
+        revision: "d193029e21720b6dd7d415a1a928206feb666aaa"
+        path: "libraries/protobuf/serialization"
+      homepage_url: ""
+      scopes:
+      - name: "build_requires"
+        dependencies:
+        - id: "Conan::protobuf:3.6.1"
+        - id: "Conan::protoc_installer:3.6.1"
+      - name: "requires"
+        dependencies:
+        - id: "Conan::protobuf:3.6.1"
+    packages:
+    - package:
+        id: "Conan::protobuf:3.6.1"
+        purl: "pkg:conan/protobuf@3.6.1"
+        declared_licenses:
+        - "BSD-3-Clause"
+        declared_licenses_processed:
+          spdx_expression: "BSD-3-Clause"
+        description: "Protocol Buffers - Google's data interchange format"
+        homepage_url: "https://github.com/protocolbuffers/protobuf"
+        binary_artifact:
+          url: ""
+          hash:
+            value: ""
+            algorithm: ""
+        source_artifact:
+          url: ""
+          hash:
+            value: ""
+            algorithm: ""
+        vcs:
+          type: "Git"
+          url: "https://github.com/bincrafters/conan-protobuf"
+          revision: "0"
+          path: ""
+        vcs_processed:
+          type: "Git"
+          url: "https://github.com/bincrafters/conan-protobuf.git"
+          revision: "0"
+          path: ""
+      curations: []
+    - package:
+        id: "Conan::protoc_installer:3.6.1"
+        purl: "pkg:conan/protoc_installer@3.6.1"
+        declared_licenses:
+        - "BSD-3-Clause"
+        declared_licenses_processed:
+          spdx_expression: "BSD-3-Clause"
+        description: "Protocol Buffers - Google's data interchange format"
+        homepage_url: "https://github.com/protocolbuffers/protobuf"
+        binary_artifact:
+          url: ""
+          hash:
+            value: ""
+            algorithm: ""
+        source_artifact:
+          url: ""
+          hash:
+            value: ""
+            algorithm: ""
+        vcs:
+          type: "Git"
+          url: "https://github.com/bincrafters/conan-protobuf"
+          revision: "0"
+          path: ""
+        vcs_processed:
+          type: "Git"
+          url: "https://github.com/bincrafters/conan-protobuf.git"
+          revision: "0"
+          path: ""
+      curations: []
+    has_errors: false
+scanner: null
+evaluator: null
