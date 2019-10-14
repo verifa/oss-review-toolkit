@@ -14,3 +14,7 @@ out/
 .project
 .project/
 .settings/
+
+ort.log
+oss-review-toolkit.ipr
+oss-review-toolkit.iws
