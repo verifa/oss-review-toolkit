@@ -20,38 +20,51 @@
 
 package com.here.ort.analyzer.managers
 
-import ch.frankel.slf4k.debug
+//import ch.frankel.slf4k.debug
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.here.ort.analyzer.AbstractPackageManagerFactory
 import com.here.ort.analyzer.PackageManager
 import com.here.ort.analyzer.PackageManagerFactory
 import com.here.ort.downloader.VersionControlSystem
 import com.here.ort.model.*
 import com.here.ort.model.config.AnalyzerConfiguration
+import com.here.ort.model.config.RepositoryConfiguration
+import com.here.ort.utils.CommandLineTool
 import com.here.ort.utils.ProcessCapture
 import com.here.ort.utils.log
 import com.here.ort.utils.textValueOrEmpty
 
 import java.io.File
 
-class BitBake(
+open class BitBake(
     name: String,
     analysisRoot: File,
     analyzerConfig: AnalyzerConfiguration,
     repoConfig: RepositoryConfiguration
-) {
-    
-    
-    ) : PackageManager(config) {
-        companion object : PackageManagerFactory<BitBake>(
+) : PackageManager(name, analysisRoot, analyzerConfig, repoConfig), CommandLineTool {
+    companion object {
+        private const val BITBAKE_URL = "https://github.com/openembedded/bitbake"
+        private const val NA = "n/a"
+        private val SOURCE_FILE_NAME = listOf("oe-init-build-env")
+    }
+    /*companion object : PackageManagerFactory<BitBake>(
             "https://github.com/openembedded/bitbake",
             "n/a",
             listOf("oe-init-build-env")
-    ) {
-        override fun create(config: AnalyzerConfiguration) = BitBake(config)
+    )*/
+    class Factory : AbstractPackageManagerFactory<BitBake>("BitBake") {
+        override val globsForDefinitionFiles = listOf("oe-init-build-env")
+
+        override fun create(
+            analysisRoot: File,
+            analyzerConfig: AnalyzerConfiguration,
+            repoConfig: RepositoryConfiguration
+        ) = BitBake(managerName, analysisRoot, analyzerConfig, repoConfig)
     }
 
-    override fun command(workingDir: File) = "bitbake"
+    //override fun command(workingDir: File) = "bitbake"
+    override fun command(workingDir: File?) = "bitbake"
 
     override fun toString() = BitBake.toString()
 
@@ -64,7 +77,7 @@ class BitBake(
 
         val scriptCmd = ProcessCapture(
                 bbPath,
-                mapOf("BBPATH" to bbPath.absolutePath),
+          //      mapOf("BBPATH" to bbPath.absolutePath),
                 "python3",
                 scriptFile.absolutePath,
                 // FIXME: add a list of bitbake recipes to query in AnalyzerConfiguration
@@ -75,11 +88,12 @@ class BitBake(
         val packages = mutableMapOf<String, Package>()
         val packageReferences = mutableSetOf<PackageReference>()
 
-        jsonMapper.readValue<JsonNode>(scriptCmd.requireSuccess().stdout()).forEach {
+        jsonMapper.readValue<JsonNode>(scriptCmd.requireSuccess().stdout).forEach {
             parseDependency(it, packages, packageReferences, errors)
         }
 
-        val project = Project(
+        return ProjectAnalyzerResult(
+            project = Project(
                 id = Identifier(toString(), "", "FIXME", "23.42"),
                 definitionFilePath = VersionControlSystem.getPathInfo(definitionFile).path,
                 declaredLicenses = emptySet<String>().toSortedSet(),
@@ -87,9 +101,8 @@ class BitBake(
                 vcsProcessed = processProjectVcs(workingDir),
                 homepageUrl = "",
                 scopes = sortedSetOf(Scope("default", packageReferences.toSortedSet()))
-        )
-
-        return ProjectAnalyzerResult(project, packages.values.map { it.toCuratedPackage() }.toSortedSet(), errors)
+            ),
+            packages = packages.values.map { it.toCuratedPackage() }.toSortedSet())
     }
 
     // TODO: error handling
@@ -107,7 +120,10 @@ class BitBake(
             parseDependency(it, packages, transitiveDependencies, errors)
         }
 
-        scopeDependencies += PackageReference(pkg.id, transitiveDependencies.toSortedSet())
+        scopeDependencies += PackageReference(
+            id = pkg.id,
+            dependencies = transitiveDependencies.toSortedSet()
+        )
     }
 
     private fun addPackage(name: String, node: JsonNode, packages: MutableMap<String, Package>): Package {
@@ -118,14 +134,14 @@ class BitBake(
             else
                 it.first().textValueOrEmpty()
         }
-        val sourceArtifact = RemoteArtifact(url = srcUri, hash = "", hashAlgorithm = HashAlgorithm.UNKNOWN)
+        val sourceArtifact = RemoteArtifact(url = srcUri, hash = Hash.NONE) //, hashAlgorithm = HashAlgorithm.UNKNOWN)
 
         val pkg = Package(
                 id = Identifier(
-                        provider = toString(),
-                        namespace = "",
-                        name = name,
-                        version = node["version"].textValueOrEmpty()
+                    type = toString(),
+                    namespace = "",
+                    name = name,
+                    version = node["version"].textValueOrEmpty()
                 ),
                 declaredLicenses = sortedSetOf(node["license"].textValueOrEmpty()),
                 description = node["description"].textValueOrEmpty(),
@@ -151,6 +167,6 @@ class BitBake(
                 "'set $buildDir && . ./${definitionFile.name} $buildDir'" // > /dev/null; echo \$BBPATH'"
         )
 
-        return File(bashCmd.requireSuccess().stdout())
+        return File(bashCmd.requireSuccess().stdout)
     }
 }

@@ -39,4 +39,7 @@ dependencies {
 
     implementation("org.gradle:gradle-tooling-api:${gradle.gradleVersion}")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutinesVersion")
+
+    implementation("com.paypal.digraph:digraph-parser:1.0")
+
 }

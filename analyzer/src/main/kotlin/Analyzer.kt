@@ -71,11 +71,11 @@ class Analyzer(private val config: AnalyzerConfiguration) {
 
             actualRepositoryConfigurationFile.readValue()
         } else {
-<<<<<<< HEAD
+
             RepositoryConfiguration()
-=======
-            RepositoryConfiguration(null, null)
->>>>>>> RepositoryConfiguration: Add BitBake recipes
+
+            //RepositoryConfiguration(null, null)
+
         }
 
         log.debug { "Using the following configuration settings:\n$repositoryConfiguration" }

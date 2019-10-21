@@ -10,3 +10,6 @@ out/
 
 # Mac
 .DS_Store
+
+.settings/
+.project
