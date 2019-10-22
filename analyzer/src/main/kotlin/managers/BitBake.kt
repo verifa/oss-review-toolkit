@@ -34,8 +34,14 @@ import com.here.ort.utils.CommandLineTool
 import com.here.ort.utils.ProcessCapture
 import com.here.ort.utils.log
 import com.here.ort.utils.textValueOrEmpty
+import com.paypal.digraph.parser.GraphEdge
+import com.paypal.digraph.parser.GraphNode
+import com.paypal.digraph.parser.GraphParser
 
 import java.io.File
+import java.io.FileInputStream
+import java.util.*
+import java.util.Collections.emptySortedSet
 
 open class BitBake(
     name: String,
@@ -46,7 +52,7 @@ open class BitBake(
     companion object {
         private const val BITBAKE_URL = "https://github.com/openembedded/bitbake"
         private const val NA = "n/a"
-        private val SOURCE_FILE_NAME = listOf("oe-init-build-env")
+        //private val SOURCE_FILE_NAME = listOf("oe-init-build-env")
     }
     /*companion object : PackageManagerFactory<BitBake>(
             "https://github.com/openembedded/bitbake",
@@ -63,18 +69,33 @@ open class BitBake(
         ) = BitBake(managerName, analysisRoot, analyzerConfig, repoConfig)
     }
 
-    //override fun command(workingDir: File) = "bitbake"
     override fun command(workingDir: File?) = "bitbake"
 
     override fun toString() = BitBake.toString()
 
     override fun resolveDependencies(definitionFile: File): ProjectAnalyzerResult? {
         val workingDir = definitionFile.parentFile
-        val bbPath = initBuildEnvironment(definitionFile)
+        //val bbPath = initBuildEnvironment(definitionFile)
 
+        val parser = GraphParser( FileInputStream(workingDir.absolutePath.toString() + "\\package-depends-minimal.dot") );
+
+        val nodes = parser.getNodes()!!;
+        val edges = parser.getEdges()!!;
+
+        log.info("--- nodes:");
+        for ( node in nodes) {
+            log.info(node);
+        }
+
+        log.info("--- edges:");
+
+        for (edge in edges) {
+            log.info(edge);
+        }
+
+        /*
         val scriptFile = File(bbPath, "find_packages.py")
         scriptFile.writeBytes(javaClass.classLoader.getResource("find_packages.py").readBytes())
-
         val scriptCmd = ProcessCapture(
                 bbPath,
           //      mapOf("BBPATH" to bbPath.absolutePath),
@@ -92,6 +113,8 @@ open class BitBake(
             parseDependency(it, packages, packageReferences, errors)
         }
 
+
+
         return ProjectAnalyzerResult(
             project = Project(
                 id = Identifier(toString(), "", "FIXME", "23.42"),
@@ -102,7 +125,23 @@ open class BitBake(
                 homepageUrl = "",
                 scopes = sortedSetOf(Scope("default", packageReferences.toSortedSet()))
             ),
-            packages = packages.values.map { it.toCuratedPackage() }.toSortedSet())
+            packages = packages.values.map { it.toCuratedPackage() }.toSortedSet()
+        )*/
+
+        return ProjectAnalyzerResult(
+            project = Project(
+                id = Identifier("ID"),
+                definitionFilePath = "",
+                declaredLicenses = emptySet<String>().toSortedSet(),
+                vcs = VcsInfo.EMPTY,
+                vcsProcessed = processProjectVcs(workingDir),
+                homepageUrl = "",
+                scopes = emptySortedSet<Scope>()
+            ),
+            packages = emptySortedSet<CuratedPackage>()
+        )
+
+
     }
 
     // TODO: error handling

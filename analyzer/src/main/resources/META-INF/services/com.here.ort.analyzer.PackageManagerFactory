@@ -1,3 +1,4 @@
+com.here.ort.analyzer.managers.BitBake$Factory
 com.here.ort.analyzer.managers.Bower$Factory
 com.here.ort.analyzer.managers.Bundler$Factory
 com.here.ort.analyzer.managers.Cargo$Factory
