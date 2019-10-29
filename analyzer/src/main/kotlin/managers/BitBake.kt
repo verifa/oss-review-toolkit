@@ -76,26 +76,31 @@ open class BitBake(
     override fun resolveDependencies(definitionFile: File): ProjectAnalyzerResult? {
         val workingDir = definitionFile.parentFile
         //val bbPath = initBuildEnvironment(definitionFile)
+        val bbPath = "C:\\Users\\kalle\\verifa\\oss-review-toolkit\\analyzer\\src\\main\\resources"
 
+        //
+        // Method 1: Parso `dot` file
+        //
+        /*
         val parser = GraphParser( FileInputStream(workingDir.absolutePath.toString() + "\\package-depends-minimal.dot") );
-
         val nodes = parser.getNodes()!!;
         val edges = parser.getEdges()!!;
-
         log.info("--- nodes:");
         for ( node in nodes) {
             log.info(node);
         }
-
         log.info("--- edges:");
-
         for (edge in edges) {
             log.info(edge);
         }
+        */
 
-        /*
+        //
+        // Method 2: python find_packages.py
+        //
         val scriptFile = File(bbPath, "find_packages.py")
         scriptFile.writeBytes(javaClass.classLoader.getResource("find_packages.py").readBytes())
+        log.info("Executing python script: " + scriptFile.absoluteFile);
         val scriptCmd = ProcessCapture(
                 bbPath,
           //      mapOf("BBPATH" to bbPath.absolutePath),
@@ -126,8 +131,8 @@ open class BitBake(
                 scopes = sortedSetOf(Scope("default", packageReferences.toSortedSet()))
             ),
             packages = packages.values.map { it.toCuratedPackage() }.toSortedSet()
-        )*/
-
+        )
+/*
         return ProjectAnalyzerResult(
             project = Project(
                 id = Identifier("ID"),
@@ -140,12 +145,13 @@ open class BitBake(
             ),
             packages = emptySortedSet<CuratedPackage>()
         )
-
+*/
 
     }
 
     // TODO: error handling
-    private fun parseDependency(node: JsonNode, packages: MutableMap<String, Package>,
+    private fun parseDependency(node: JsonNode,
+                                packages: MutableMap<String, Package>,
                                 scopeDependencies: MutableSet<PackageReference>,
                                 errors: MutableList<Error>) {
 
